@@ -442,6 +442,11 @@ function getSubjAndSubjClr(subjToPlot, subjList, colorfulSubjects)
     stg.subjNumber = find(subjInd);
 end
 function dobTable = getSubjectList(dobpn)
+    % datetime below often throughs warnings. I want to turn them off for this function.
+    origWarningState = warning('query', 'all'); % Save the current warning state
+    warning('off', 'all'); % Turn off all warnings
+
+    % Now the function proper
     videoEEGdata = readtable(dobpn);
     numSubj = height(videoEEGdata);
     Subject = strings(numSubj, 1);
@@ -475,6 +480,8 @@ function dobTable = getSubjectList(dobpn)
         Birth(k, 1) = dt;
         Sex(k, 1) = true;
     end
+    % Restore the original warning state
+    warning(origWarningState); 
     dobTable = table(Subject, Birth, Sex);
 end
 function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj, subjNmOrig)
@@ -483,7 +490,6 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     global stg
     
     % If the data for this subject already exist load it
-% searchFor_ = [stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat']
     if exist([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'], 'file')
         load([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'],...
             'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
@@ -504,8 +510,8 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     end
 
     % Get the file names
-    [snlpn, snlN] = getPnN(snlp);
-    [lblpn, lblN] = getPnN(lblp);
+    [snlpn, snlN] = getPnN(snlp); % Get path name and datenum
+    [lblpn, lblN] = getPnN(lblp); % Get path name and datenum
     [subjNm, anStartN, anEndN] = getSubjInfo(lblpn, snlpn, subjNmOrig);
     
     % Initialize seizure-related variables
@@ -836,11 +842,11 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
         disp(lblpn{1})
         load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet') %#ok<NASGU>
         % There can be multiple subjects in one lbl3 file. Keep only channels containing the data on the subject.
-        ss = strsplit(subjNmOrig, 'ET');
-        whichChannels = find(contains(sigInfo.Subject, ss{end}));
-        sigInfo = sigInfo(whichChannels, :);
-        lblSet = lblSet(ismember(lblSet.Channel, whichChannels), :);
-        % Check
+        ss = strsplit(subjNmOrig, 'ET'); % ET stands for ear tag. Sometimes it is included in the subject name
+        whichChannelsLbl = find(contains(sigInfo.Subject, ss{end}));
+        sigInfo = sigInfo(whichChannelsLbl, :);
+        lblSet = lblSet(ismember(lblSet.Channel, whichChannelsLbl), :);
+        % Check that all rows belong to the same subject
         subjNm = sigInfo.Subject(1);
         if ~all(sigInfo.Subject == subjNm)
             disp(sigInfo)
@@ -848,24 +854,32 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
         end
         % Now the same with signal data (e.g. markers of critical slowing)
         load(snlpn{1}, 'sigTbl')
-        whichChannels = contains(sigTbl.Subject, ss{end});
-        sigTbl = sigTbl(whichChannels, :);
+        whichChannelsSnl = contains(sigTbl.Subject, ss{end});
+        sigTbl = sigTbl(whichChannelsSnl, :);
         subjNm = sigTbl.Subject(1);
         if ~all(sigTbl.Subject == subjNm)
             error('_jk Multiple subjects in signal file.')
         end
-        anStartN = datenum(min(sigInfo.SigStart)); % Analysis start
-        anStartNSig = datenum(min(sigTbl.SigStart)); % Analysis start determined by critical slowing file
-        load(lblpn{end})
-        load(snlpn{end})
-        anEndN = datenum(max(sigInfo.SigEnd)); % Analysis end
-        anEndNSig = datenum(max(sigTbl.SigEnd)); % Analysis end
+        anStartN = datenum(min(sigInfo.SigStart)); % Analysis start determined by label files
+        anStartNSig = datenum(min(sigTbl.SigStart)); % Analysis start determined by signal files
+        lastLbl = load(lblpn{end});
+        lastSigInfo = lastLbl.sigInfo(whichChannelsLbl, :);
+        if any(sigInfo.Subject ~= lastSigInfo.Subject)
+            error('_jk Last label file has diffent channels than the first file.')
+        end
+        lastSnl = load(snlpn{end});
+        lastSigTbl = lastSnl.sigTbl(whichChannelsSnl, :);
+        if any(sigTbl.Subject ~= lastSigTbl.Subject)
+            error('_jk Last signal file has diffent channels than the first file.')
+        end
+        anEndN = datenum(max(lastSigInfo.SigEnd)); % Analysis end determined by signal files
+        anEndNSig = datenum(max(lastSigTbl.SigEnd)); % Analysis end determined by label files
         if abs(anEndN - anEndNSig)*3600*24 > 1 || abs(anStartN - anStartNSig)*3600*24 > 1 % If they differ by more than a second
             disp('Analysis start difference:')
             disp((anStartN - anStartNSig)*3600*24)
             disp('Analysis end difference:')
             disp((anEndN - anEndNSig)*3600*24)
-            error('_jk Lbl and critical slowing data have different time extent')
+            error('_jk Label data and signal data have different time extent')
         end
     end
     function [pn, N] = getPnN(p)
