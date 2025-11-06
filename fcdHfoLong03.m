@@ -17,6 +17,7 @@ end
 % IED fit should maybe also run from the first seizure
 
 %% ANALYSIS
+% TODO001 Different time extents of label and signal files. Needs to be fixed in the data not in this script.
 % In siCharCl fix the y-axis labels
 % Add rmse and pearson of simulated data to individual plots (Supplementary Figures)
 % How many seizures are there in the animal-wise pictures? For peri-seizure pictures are rendered just add them to the Corel.
@@ -148,9 +149,9 @@ stg.printFigures            =  0;
 % % %     '725_labels with IEDs TEST'
 % % % };
 subjList = {'BH002390'};
-path0 = '\\neurodata3\Lab Glia'; % Without '\' at the end
+path0 = 'r:\Kudlacek\FCD HFO\HFO long-term profile'; % Without '\' at the end
 path1 = {
-    'Glia EEG Data'
+    'Testing snl and lbl'
 };
 subjToPlot = {
         'BH002390';
@@ -169,7 +170,7 @@ getSubjAndSubjClr(subjToPlot, subjList, colorfulSubjects);
 stg.dataFolder = 'DataEmgNotExcluded/';
 stg.removeEmgContaminatedTF = false;
 stg.keepOriginalSubjectName = true;
-stg.numEegCh = 2; % Number of EEG channels (other channels may be analysis results)
+stg.numEegCh = 4; % Number of EEG channels (other channels may be analysis results)
 
 % Seizures
 stg.minIsiS = 10; % Minimal required ISI, otherwise consider them one seizure. Used to be 120, changed to 60 seconds on 2023-01-17
@@ -204,7 +205,8 @@ stg.artClNm = ["jkArtifact01", "highAmpArtifact01"];
 stg.iedClNm = "IED_Janca";
 stg.emgClNm = "EMG_det01";
 stg.fsLbl = 10; % Hz. When manipulating the labels, they are sometimes converted to (binary or m-ary) signal. Here we set the Fs for this signal.
-stg.snlDecontaminationCh = [1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 -1 -1]; % Which channel of the label pertains to the analysis signal. -1 stands for any.
+% % % stg.snlDecontaminationCh = [1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 -1 -1]; % Which channel of the label pertains to the analysis signal. -1 stands for any.
+stg.snlDecontaminationCh = [1 2 3 4];
 stg.whWinLen = 1; % Whole signal analysis window length in days
 stg.clDurMultiple = 1; % How many cluster durations before and after the cluster we should use for pre- and post-cluster analysis
 stg.curFitPopNorm = true;
@@ -540,11 +542,14 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     ac1 = NaN(numbl, 1); % Signal lag-1 autocorrelation function
     hmw = NaN(numbl, 1); % Half-maximum width of the autocorrelation function
     crc = NaN(numbl, 1); % Signal cross-correlation function
-    
+
+    fprintf('Block No. 000000/000000'), 
     for kb = 1 : length(blN) - 1 % Loop over time blocks
-        disp(['Block No. ', num2str(kb), '/', num2str(length(blN) - 1)])
-        lblfSub = find(lblN > blN(kb), 1, 'first') - 1 : find(lblN <= blN(kb + 1), 1, 'last'); % Subscript of label file
-        snlfSub = find(snlN > blN(kb), 1, 'first') - 1 : find(snlN <= blN(kb + 1), 1, 'last'); % Subscript of signal file
+        fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+        fprintf([num2str(kb, '%06d'), '/', num2str(length(blN) - 1, '%06d'), '\n'])
+        tol = 0.001/3600/24; % Tolerance in datenum
+        lblfSub = find(lblN > blN(kb) + tol, 1, 'first') - 1 : find(lblN <= blN(kb + 1), 1, 'last'); % Subscript of label file
+        snlfSub = find(snlN > blN(kb) + tol, 1, 'first') - 1 : find(snlN <= blN(kb + 1), 1, 'last'); % Subscript of signal file
         if any(size(lblfSub) ~= size(snlfSub))
             disp(size(lblfSub))
             disp(size(snlfSub))
@@ -575,21 +580,23 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
         
         % Loop over files within this block
         for klf = 1 : length(lblfSub) % k-th label file (out of those relevant for this block)
-            % disp(lblpn{lblfSub(klf)})
+            % % % disp(lblpn{lblfSub(klf)})
             load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblSet')
 % % % % sigInfo_ = sigInfo
 % % % % lblSet_ = lblSet
             load(snlpn{snlfSub(klf)}, 'sigTbl')
 % % % % sigTbl_ = sigTbl
-            whichAreNotAccelerometer = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match'));
-            sigTbl = sigTbl(whichAreNotAccelerometer, :);
-            sigInfo = sigInfo(whichAreNotAccelerometer, :);
+            snlChToProcessSub = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match')); % Subscripts of signal channels to be processed (e.g. we may want do ignore accelerometer channels)
+            sigTbl = sigTbl(snlChToProcessSub, :);
+            sigInfo = sigInfo(snlChToProcessSub, :);
             if ~all(sigInfo.Subject == subjNm)
                 error('_jk Inconsistency of subjects in label file.')
             end
             if ~all(sigTbl.Subject == subjNm)
                 error('_jk Inconsistency of subjects in signal file.')
             end
+            % TODO001 Sometimes, there is a mismatch between time extent of the signal and label file. In the future, fix the data files, so that this does
+            % not happen.
             if abs(seconds(min(sigInfo.SigStart) - min(sigTbl.SigStart))) > 10 || abs(seconds(min(sigInfo.SigEnd) - min(sigTbl.SigEnd))) > 10 % If start or end times of signal and label file differ by more than 1 s
                 disp(['lblpn ', lblpn{lblfSub(klf)}, 10])
                 disp(['snlpn ', snlpn{snlfSub(klf)}, 10])
@@ -597,8 +604,8 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
                 disp(sigTbl)
                 error('_jk Label file and signal file have different time extent')
             end
-            sigInfo.SigStart = sigTbl.SigStart;
-            sigInfo.SigEnd = sigTbl.SigEnd;
+            sigInfo.SigStart = sigTbl.SigStart; % The signal file's SigStart will be used
+            sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
             if blN(kb) > datenum(max(sigInfo.SigEnd)) %#ok<*DATNM> % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
                 warning(['Data missing at ', datestr(blN(kb)), '.'])
                 disp(lblfSub)
@@ -783,6 +790,7 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
         ac1(kb, 1) = mean(schBl(9 : 12), 1, "omitmissing");
         hmw(kb, 1) = mean(schBl(13 : 16), 1, "omitmissing");
         crc(kb, 1) = schBl(17, :);
+        
     end
     
     % Join seizures too close together
@@ -839,7 +847,6 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     save([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
     
     function [subjNm, anStartN, anEndN] = getSubjInfo(lblpn, snlpn, subjNmOrig)
-        disp(lblpn{1})
         load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet') %#ok<NASGU>
         % There can be multiple subjects in one lbl3 file. Keep only channels containing the data on the subject.
         ss = strsplit(subjNmOrig, 'ET'); % ET stands for ear tag. Sometimes it is included in the subject name
@@ -1282,7 +1289,7 @@ function plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
         h.a.(plotName).YAxis.Visible = 'off';
         % text(-0.1*range(h.a.(plotName).XLim), (stg.numSubj - ksubj)*2 + 0.5, ['Mouse ', num2str(ksubj)], 'Interpreter', 'none', 'FontWeight', 'bold')
         % text(-0.02*range(h.a.(plotName).XLim), (stg.numSubj - ksubj)*2 + 0.5, subjInfo.subjNm, 'Interpreter', 'none', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle')
-        text(-0.02*range(h.a.(plotName).XLim) + h.a.(plotName).XLim(1), (stg.numSubj - ksubj)*2 + 1, subjInfo.subjNm,...
+        text(-0.02*(max(h.a.(plotName).XLim)-min(h.a.(plotName).XLim)) + h.a.(plotName).XLim(1), (stg.numSubj - ksubj)*2 + 1, subjInfo.subjNm,...
             'Interpreter', 'none', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle', 'Color', stg.subjColor(ksubj, :), 'FontWeight', 'bold');
         h.a.(plotName).FontSize = stg.axFontSize;
         h.a.(plotName).Layer = 'top';
@@ -7339,8 +7346,8 @@ function plotWaveletCoherenceArrows(wcoh, wcs, freqs, coi, hax)
     % --- 6. Calculate arrow components in (X_data, log_Y_data) space ---
     % First, define the 'unit' length for arrows in this transformed space.
     % We'll use a fraction of the average spacing in X and the log-Y range.
-    x_range = range(hax.XLim);
-    log_y_range = range(log(hax.YLim)); % Calculate range in log Y space
+    x_range = max(hax.XLim) - min(hax.XLim);
+    log_y_range = max(log(hax.YLim)) - min(log(hax.YLim)); % Calculate range in log Y space
 
     % This 'reference_length' determines the overall visual size of the arrows.
     % It's a balance between X and logY axis dimensions.
