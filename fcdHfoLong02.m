@@ -134,22 +134,36 @@ stg.showStat                =  0;
 stg.printFigures            =  0;
 
 %% Select subjects
-driveLetter = 'N';
+% % % path0 = 'N:';
+% % % path1 = {
+% % %     'EEG Bogda'
+% % % };
+% % % subjToPlot = {
+% % %         'BogdaET725';
+% % % };
+% % % pathEeg3 = {
+% % %     '725_smrx converted data TEST'
+% % % };
+% % % pathLbl3 = {
+% % %     '725_labels with IEDs TEST'
+% % % };
+subjList = {'BH002390'};
+path0 = '\\neurodata3\Lab Glia'; % Without '\' at the end
 path1 = {
-    'EEG Bogda'
+    'Glia EEG Data'
 };
 subjToPlot = {
-        'BogdaET725';
+        'BH002390';
 };
 pathEeg3 = {
-    '725_smrx converted data TEST'
+    'BH002390_smrx converted data'
 };
 pathLbl3 = {
-    '725_labels with IEDs TEST'
+    'BH002390_label_TEST'
 };
 colorfulSubjects = true;
 stg.uniformSubjectColor = [0.8 0.1 0.1];
-getSubjAndSubjClr(subjToPlot, colorfulSubjects);
+getSubjAndSubjClr(subjToPlot, subjList, colorfulSubjects);
 
 % General
 stg.dataFolder = 'DataEmgNotExcluded/';
@@ -280,10 +294,8 @@ setFormat
 dobTable = getLoadTable(['Video-EEG data.xlsx']);
 if analyzeIndividualSubjects
     for ksubj = 1 : stg.numSubj
-        % % % lblp = [driveLetter, ':\JK analysis\', subjToPlot{ksubj}, '\lbl3 sz emg ied 4'];
-        % % % snlp = [driveLetter, ':\JK analysis\', subjToPlot{ksubj}, '\250Hz critical slowing EMG not removed']; % Taking "EMG not removed" because the contaminated data are removed later
-        lblp = [driveLetter, ':\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}];
-        snlp = [driveLetter, ':\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Taking "EMG not removed" because the contaminated data are removed later
+        lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}];
+        snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Taking "EMG not removed" because the contaminated data are removed later
         [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
         [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, szCharTbl, siCharTbl, ksubj);
         subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
@@ -380,8 +392,8 @@ end
 
 load('siCharCurPop.mat', 'siCharCurPop')
 for ksubj = 1 : stg.numSubj
-    lblp = [driveLetter, ':\JK analysis\', subjToPlot{ksubj}, '\lbl3 sz emg ied 4'];
-    snlp = [driveLetter, ':\JK analysis\', subjToPlot{ksubj}, '\250Hz critical slowing EMG not removed']; % Taking "EMG not removed" because the contaminated data are removed later
+    lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}];
+    snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Taking "EMG not removed" because the contaminated data are removed later
     [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
     [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, szCharTbl, siCharTbl, ksubj);
     % % % subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
@@ -413,11 +425,8 @@ printFigures
 %% FUNCTIONS %%
 %% %%%%%%%%% %%
 % Get data
-function getSubjAndSubjClr(subjToPlot, colorfulSubjects)
+function getSubjAndSubjClr(subjToPlot, subjList, colorfulSubjects)
     global stg
-    subj = {
-        'BogdaET725'
-    }; % Make sure this is the same as list at the beginning of the script
     if colorfulSubjects
         hf = figure;
         axes;
@@ -426,10 +435,9 @@ function getSubjAndSubjClr(subjToPlot, colorfulSubjects)
         delete(hf); % Dummy axes to get Matlab default color order
         subjClr = [max(1 - (1 - subjClr)*0.75, 0); max(1 - (1 - subjClr)*1.2, 0)]; % Each subject has different color
     else
-        subjClr = ones(numel(subj), 1)*stg.uniformSubjectColor; % All subjects have red
-        % % subjClr = ones(numel(subj), 1)*[0 0.8 0]; % All subjects have green for SalyOlomouc
+        subjClr = ones(numel(subjList), 1)*stg.uniformSubjectColor; % All subjects have red
     end
-    subjInd = ismember(subj, subjToPlot);
+    subjInd = ismember(subjList, subjToPlot);
     subjClr = subjClr(subjInd, :);
     stg.subjColor = subjClr;
     stg.subjNumber = find(subjInd);
@@ -438,15 +446,22 @@ function dobTable = getLoadTable(dobpn)
     videoEEGdata = readtable(dobpn);
     for k = 1 : height(videoEEGdata)
         Subject{k, 1} = videoEEGdata.Mouse{k}; %#ok<AGROW>
-asf = videoEEGdata.Birth{k}
-        r = regexp(videoEEGdata.Birth(k), '\d+-...-\d+', 'match')
+        r = regexp(videoEEGdata.Birth(k), '\d\d\d\d-\d\d-\d\d', 'match');
+        if ~isempty(r{1})
+            dt = datetime(r{1}, 'InputFormat', 'yyyy-mm-dd', 'Format', 'uuuu-MM-dd');
+            if year(dt) < 1000
+                dt.Year = dt.Year + 2000;
+            end
+        end
+        
+        r = regexp(videoEEGdata.Birth(k), '\d+-...-\d+', 'match');
         if ~isempty(r{1})
             dt = datetime(r{1}, 'InputFormat', 'dd-MMM-yyyy', 'Format', 'uuuu-MM-dd');
             if year(dt) < 1000
                 dt.Year = dt.Year + 2000;
             end
         end
-
+        
         r = regexp(videoEEGdata.Birth(k), '\d+\.\d+\.\d+', 'match');
         if ~isempty(r{1})
             dt = datetime(r{1}, 'InputFormat', 'dd.MM.uuuu', 'Format', 'uuuu-MM-dd');
