@@ -72,17 +72,17 @@ global stg
 
 %% Select plots
 % Seizure occurrence
-stg.plotSzRaster            =  1; % Raster plot of seizures
-stg.plotSzKaroly            =  1; % Plot according to Karoly et al., Brain 2016
-stg.plotSzRate              =  1; % Seizure rate which is used for the PSD computation
+stg.plotSzRaster            =  0; % Raster plot of seizures
+stg.plotSzKaroly            =  0; % Plot according to Karoly et al., Brain 2016
+stg.plotSzRate              =  0; % Seizure rate which is used for the PSD computation
 stg.plotSzPsd               =  0; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
 stg.plotSzPsdAllPop         =  0; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
 stg.plotSzIsiHist           =  0; % Dropouts not accounted for
 stg.plotSzIsiHistAll        =  0; % Dropouts not accounted for
 stg.plotSzIsiHistPop        =  0; % Dropouts not accounted for
 % Seizure characteristics
-stg.plotSzChar              =  1; % Just plot the data
-stg.plotSzCharWhFit         =  1; % Fit whole recording
+stg.plotSzChar              =  0; % Just plot the data
+stg.plotSzCharWhFit         =  0; % Fit whole recording
 stg.plotSzCharWhFitAllPop   =  0; % Fit whole recording
 stg.plotSzCharCl            =  0; % Fit during cluster
 stg.plotSzCharClFit         =  0; % Fit during cluster
@@ -90,14 +90,14 @@ stg.plotSzCharClFitAllPop   =  0; % Fit during cluster
 stg.plotSzCharCiFit         =  0; % Circadian profile
 stg.plotSzCharCiFitAllPop   =  0; % Circadian profile
 % Seizure and signal characteristics in one figure
-stg.plotSaChar              =  1; % Just plot the data
+stg.plotSaChar              =  0; % Just plot the data
 stg.plotSaCharCWT           =  0; % Continuous wavelet transform and wavelet coherence
 stg.plotSaCharWhFit         =  1; % Fit whole recording
 stg.plotSaCharWhFitAllPop   =  0; % Fit whole recording
 stg.plotSaCharCl            =  0; % Data during cluster
 stg.plotSaCharClFit         =  0; % Fit during cluster
 stg.plotSaCharClFitAllPop   =  0; % Fit during cluster
-stg.clusterExampleMouseJc20190509_2 = 0;
+% % % % % stg.clusterExampleMouseJc20190509_2 = 0;
 stg.plotSaCharCiFit         =  0; % Circadian profile
 stg.plotSaCharCiFitAllPop   =  0; % Circadian profile
 % Signal characteristics
@@ -113,7 +113,7 @@ stg.plotSiCharClFitAllPop   =  0; % Fit before, during and after the cluster
 stg.plotSiCharCiFit         =  0; % Circadian profile
 stg.plotSiCharCiFitAllPop   =  0; % Circadian profile
 stg.plotSiCharSzBeAfVsOther =  0; % Compare the IED rate around seizure (before or after) vs. at other times (added in rev01)
-stg.plotSiCharSz            =  1; % Raw data before and after the seizure
+stg.plotSiCharSz            =  0; % Raw data before and after the seizure
 stg.plotSiCharSzAllPop      =  0; % Raw data before and after the seizure
 stg.plotSiCharSzFit         =  0; % Line fit before and after the seizure
 stg.plotSiCharSzFitAllPop   =  0; % Line fit before and after the seizure
@@ -135,19 +135,6 @@ stg.showStat                =  0;
 stg.printFigures            =  0;
 
 %% Select subjects
-% % % path0 = 'N:';
-% % % path1 = {
-% % %     'EEG Bogda'
-% % % };
-% % % subjToPlot = {
-% % %         'BogdaET725';
-% % % };
-% % % pathEeg3 = {
-% % %     '725_smrx converted data TEST'
-% % % };
-% % % pathLbl3 = {
-% % %     '725_labels with IEDs TEST'
-% % % };
 subjList = {'BH002390'};
 path0 = 'r:\Kudlacek\FCD HFO\HFO long-term profile'; % Without '\' at the end
 path1 = {
@@ -157,10 +144,10 @@ subjToPlot = {
         'BH002390';
 };
 pathEeg3 = {
-    'BH002390_smrx converted data'
+    'BH002390_smrx converted data full'
 };
 pathLbl3 = {
-    'BH002390_label_TEST'
+    'BH002390_label_TEST full'
 };
 colorfulSubjects = true;
 stg.uniformSubjectColor = [0.8 0.1 0.1];
@@ -202,7 +189,8 @@ stg.minIedSepS = 0.1; % Minimum IED separation otherwise delete the later one, i
 stg.szClNm = ["SEIZURE", "Seizure", "seizure", "s", "sz"];
 stg.artClNm = ["jkArtifact01", "highAmpArtifact01"];
 % stg.iedClNm = "IED_Janca30Hz5";
-stg.iedClNm = "IED_Janca";
+% stg.iedClNm = "IED_Janca";
+stg.iedClNm = "fast ripple";
 stg.emgClNm = "EMG_det01";
 stg.fsLbl = 10; % Hz. When manipulating the labels, they are sometimes converted to (binary or m-ary) signal. Here we set the Fs for this signal.
 % % % stg.snlDecontaminationCh = [1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 -1 -1]; % Which channel of the label pertains to the analysis signal. -1 stands for any.
@@ -305,21 +293,21 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
         plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
         plotSzKaroly(subjInfo, szCharTbl, siCharTbl, ksubj)
         [szRate, szRateBinlen] = plotSzRate(subjInfo, szCharTbl, siCharTbl, ksubj); % szRate and binlen are used in the plotSzPsd function
-        % % % [szPsdPax(ksubj, :), szPsd(ksubj, :)] = plotSzPsd(subjInfo, szRate, szRateBinlen, ksubj); %#ok<SAGROW>
+        [szPsdPax(ksubj, :), szPsd(ksubj, :)] = plotSzPsd(subjInfo, szRate, szRateBinlen, ksubj); %#ok<SAGROW>
         [isiH{ksubj, 1}, isiStats(ksubj, :), isiHist(ksubj, :)] = plotSzIsiHist(subjInfo, szCharTbl, ksubj); %#ok<SAGROW>
         
         % Seizure characteristics analyses
         plotSzChar(ksubj, subjInfo, szCharTbl, siCharTbl)
         [szCharFit.whole(ksubj, :), szCharFit.wholeX(ksubj, :), szCharFit.wholeY(ksubj, :)]...
             = plotSzCharWhFit(ksubj, subjInfo, szCharTbl, siCharTbl);
-        % [szCharFit.clDu(ksubj, :), szCharFit.clDuX(ksubj, :), szCharFit.clDuY(ksubj, :)]...
-        %     = plotSzCharCl(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
+        [szCharFit.clDu(ksubj, :), szCharFit.clDuX(ksubj, :), szCharFit.clDuY(ksubj, :)]...
+            = plotSzCharCl(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
         [szCharFit.clDu(ksubj, :), szCharFit.clDuX(ksubj, :), szCharFit.clDuY(ksubj, :)]...
             = plotSzCharClFit(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
         [szCharFit.circ(ksubj, :), szChar.circEd, szChar.circR(ksubj, :)]...
             = plotSzCharCiFit(ksubj, subjInfo, szCharTbl, siCharTbl);
         clustSzCharTbl(ksubj, :) = clTerminDur(szCharTbl, clust, szBelongsToClust); %#ok<SAGROW>
-    
+        
         % Seizure and signal characteristics analyses in one figure
         plotSaChar(ksubj, subjInfo, szCharTbl, siCharTbl)
         % % % plotSaCharCWT(ksubj, subjInfo, szCharTbl, siCharTbl)
@@ -606,7 +594,8 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
             end
             sigInfo.SigStart = sigTbl.SigStart; % The signal file's SigStart will be used
             sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
-            if blN(kb) > datenum(max(sigInfo.SigEnd)) %#ok<*DATNM> % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
+            tol = 60/3600/24; % Gap of 60 seconds will be tolerated
+            if blN(kb) > datenum(max(sigInfo.SigEnd)) + tol %#ok<*DATNM> % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
                 warning(['Data missing at ', datestr(blN(kb)), '.'])
                 disp(lblfSub)
                 disp(snlfSub)
@@ -2643,6 +2632,13 @@ function plotSaCharCl(ksubj, subjInfo, szCharTbl, siCharTbl, cl)
         % Plot
         if plotTF
             numCl = plotPeriEventData(plotName, ksubj, xCell{kfp}, yyInterpTbl, myyInterpTblCell{kfp}, plotColor); % Refer to the created axes using h.a.(plotName)
+'Some variables'
+numCl
+numChar
+thisAxes_ = h.a.(plotName)
+ksubj
+kchar
+
             for kchar = 1 : numChar
                 hax = h.a.(plotName)(ksubj, kchar);
                 h.t.(plotName)(ksubj, kchar, kfp, 1) = text(hax, mean(xCell{kfp}), h.a.(plotName)(ksubj, kchar).YLim(2), ['n=', num2str(numCl(kchar))],...
@@ -3202,8 +3198,6 @@ function plotSaCharCiFitAllPop(cirTbl, ppTbl, rrTbl, szCharTbl, siCharTbl)
     end
     if plotTF
         % Calculate axes positions
-        % % % % % % % % margGlob = [0 0 0 0]; % Left, bottom, right, top
-        % % % % % % % % marg = [0.1 0.5 0.1 0.5];
         [spx, spy, spWi, spHe, ~, numc] = getSubplotXYWH(plotName, stg.margGlobCi, stg.margCi);
         h.f.(plotName).Units = stg.units;
         
@@ -5649,7 +5643,6 @@ function stats = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats)
             stats.(colNames{kc}) = stg.withinSubjectStat(szCharTbl.(colNames{kc}), 'omitmissing');
         end
     end
-    clustStats
     colNames = clustStats.Properties.VariableNames;
     for kc = 1 : numel(colNames)
         stats.(colNames{kc}) = clustStats.(colNames{kc});
@@ -7670,8 +7663,7 @@ function numRealOut = plotPeriEventData(plotName, ksubj, x, yy, myy, plotColor)
     [spx, spy, spWi, spHe, ~, numc] = getSubplotXYWH(plotName, stg.margGlob, stg.marg);
     h.f.(plotName).Units = stg.units;
     % Get some basic variables
-    % numChar = numel(stg.siCharToPlot);
-    numChar = numel(stg.siCharToPlot);
+    numChar = numel(stg.([plotName([1, 2]), 'CharToPlot'])); % Usually either siCharToPlot or saCharToPlot
     numReal = size(yy, 1); % Number of realizations (e.g. number of seizures or number of subjects)
     % Create axes if needed
     if ~isfield(h.a, plotName)
@@ -9672,7 +9664,7 @@ function [Pos]=tscan(ha,wdt,hgt,tol,stickytol,hl) %#ok<INUSD>
     % legend, not included here, is a child of gcf with 'tag' 'legend'
     Kids=get(ha,'children');
     Xdata=[];Ydata=[];
-    for i=1:size(Kids)
+    for i=1:size(Kids,1)
       Xtemp = [];
       Ytemp = [];
       if strcmp(get(Kids(i),'type'),'line')
