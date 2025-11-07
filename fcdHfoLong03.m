@@ -72,10 +72,10 @@ global stg
 
 %% Select plots
 % Seizure occurrence
-stg.plotSzRaster            =  0; % Raster plot of seizures
-stg.plotSzKaroly            =  0; % Plot according to Karoly et al., Brain 2016
-stg.plotSzRate              =  0; % Seizure rate which is used for the PSD computation
-stg.plotSzPsd               =  0; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
+stg.plotSzRaster            =  1; % Raster plot of seizures
+stg.plotSzKaroly            =  1; % Plot according to Karoly et al., Brain 2016
+stg.plotSzRate              =  1; % Seizure rate which is used for the PSD computation
+stg.plotSzPsd               =  1; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
 stg.plotSzPsdAllPop         =  0; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
 stg.plotSzIsiHist           =  0; % Dropouts not accounted for
 stg.plotSzIsiHistAll        =  0; % Dropouts not accounted for
@@ -98,7 +98,7 @@ stg.plotSaCharCl            =  0; % Data during cluster
 stg.plotSaCharClFit         =  0; % Fit during cluster
 stg.plotSaCharClFitAllPop   =  0; % Fit during cluster
 % % % % % stg.clusterExampleMouseJc20190509_2 = 0;
-stg.plotSaCharCiFit         =  0; % Circadian profile
+stg.plotSaCharCiFit         =  1; % Circadian profile
 stg.plotSaCharCiFitAllPop   =  0; % Circadian profile
 % Signal characteristics
 stg.plotSiChar              =  0; % Just plot the data
@@ -117,7 +117,7 @@ stg.plotSiCharSz            =  0; % Raw data before and after the seizure
 stg.plotSiCharSzAllPop      =  0; % Raw data before and after the seizure
 stg.plotSiCharSzFit         =  0; % Line fit before and after the seizure
 stg.plotSiCharSzFitAllPop   =  0; % Line fit before and after the seizure
-stg.plotSiCharSzCur         =  0; % Curve fit after the seizure
+stg.plotSiCharSzCur         =  1; % Curve fit after the seizure
 stg.plotSiCharSzCurAllPop   =  0; % Curve fit after the seizure
 % Seizure and signal characteristics and filter-derived IED rate in one figure
 stg.plotSsChar              =  0; % Just plot the data
@@ -136,7 +136,7 @@ stg.printFigures            =  0;
 
 %% Select subjects
 subjList = {'BH002390'};
-path0 = 'r:\Kudlacek\FCD HFO\HFO long-term profile'; % Without '\' at the end
+path0 = '\\neurodata3\Lab Neuro Ephys\Kudlacek\FCD HFO\HFO long-term profile'; % Without '\' at the end
 path1 = {
     'Testing snl and lbl'
 };
@@ -180,7 +180,7 @@ stg.maxWithinClusIsiN = 2; % In days
 stg.parNm = {'isi', 'dur', 'rac', 'pow', 'pos'}; % Names of parameters to correlate with intracluster time
 
 % Signal characteristics
-stg.iedBlockLenS = 600;
+stg.iedBlockLenS = 3600;
 
 stg.leadSzTimeS = 4*3600; % Duration of the period before the seizure that must be seizure free
 stg.fitSzDurS = 2*3600; % Duration of the fitted region before or after the seizure in seconds
@@ -190,7 +190,7 @@ stg.szClNm = ["SEIZURE", "Seizure", "seizure", "s", "sz"];
 stg.artClNm = ["jkArtifact01", "highAmpArtifact01"];
 % stg.iedClNm = "IED_Janca30Hz5";
 % stg.iedClNm = "IED_Janca";
-stg.iedClNm = "fast ripple";
+stg.iedClNm = "fast ripple"; 
 stg.emgClNm = "EMG_det01";
 stg.fsLbl = 10; % Hz. When manipulating the labels, they are sometimes converted to (binary or m-ary) signal. Here we set the Fs for this signal.
 % % % stg.snlDecontaminationCh = [1 2 3 4 1 2 3 4 1 2 3 4 1 2 3 4 -1 -1]; % Which channel of the label pertains to the analysis signal. -1 stands for any.
@@ -480,8 +480,8 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     global stg
     
     % If the data for this subject already exist load it
-    if exist([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'], 'file')
-        load([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'],...
+    if exist([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '-', strrep(char(stg.iedClNm), ' ', ''),'.mat'], 'file')
+        load([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '-', strrep(char(stg.iedClNm), ' ', ''),'.mat'],...
             'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
         stg.szCharYLbl = szCharLabel;
         stg.siCharYLbl = siCharLabel;
@@ -833,7 +833,7 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     if ~stg.keepOriginalSubjectName
         subjInfo.subjNm = ['Mouse', num2str(stg.subjNumber(ksubj), '%02d')];
     end
-    save([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
+    save([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '-' ,strrep(char(stg.iedClNm), ' ', ''), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
     
     function [subjNm, anStartN, anEndN] = getSubjInfo(lblpn, snlpn, subjNmOrig)
         load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet') %#ok<NASGU>
