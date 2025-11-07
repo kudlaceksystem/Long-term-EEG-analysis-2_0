@@ -1,5 +1,7 @@
 # ALPACA Analyzer of long-term profiles and circadian arrangement
 
+I started implementing it in fcdHfoLong04.m. We may rename the function afterwards. We may also split it into multiple files.
+
 ## getData
 The function getData creates three variables: subjectInfo, ds, dp.
 
@@ -26,3 +28,4 @@ The user may also define some characteristics of the EEG patterns (e.g. spike am
 
 ### Computation
 The main part of the function will manage the division of the data into time bins. Function for specific calculations will be implemented for given application.
+
