@@ -1,5 +1,4 @@
 % This script takes label files and optionally signal files and creates long-term profiles of labeled patterns and transients
-% In this version, I am simplifying the getData function, mainly removing the analysis of critical slowing. The original version is in fcdHfoLong02.m.
 analyzeIndividualSubjects = 1;
 analyzePopulation = 1;
 if analyzeIndividualSubjects
@@ -9,12 +8,6 @@ if analyzeIndividualSubjects
     analyzePopulation = 1;
 end
 
-%% DISCUSS WITH COLLEAGUES
-% Should the trend analysis start at the first seizure and end at the last one so that we skip the pre-epileptic phase?
-% How to do circadian stats?
-% Mean sometimes black and some times colored
-% Normalization of the slopes?
-% IED fit should maybe also run from the first seizure
 
 %% ANALYSIS
 % TODO001 Different time extents of label and signal files. Needs to be fixed in the data not in this script.
@@ -53,7 +46,6 @@ end
 % Add animals
 
 %% ANALYSIS IDEAS
-% Post-seizure or post-cluster fit (exponential or power-law)
 % Forecasting
 % Add seizure sizes according to Osorio 2010.
 % Osorio 2010: Omori law. Is the IED rate decay after seizures exponential or power-law?
@@ -180,7 +172,7 @@ stg.maxWithinClusIsiN = 2; % In days
 stg.parNm = {'isi', 'dur', 'rac', 'pow', 'pos'}; % Names of parameters to correlate with intracluster time
 
 % Signal characteristics
-stg.iedBlockLenS = 600;
+stg.dpBinLenS = 4*3600;
 
 stg.leadSzTimeS = 4*3600; % Duration of the period before the seizure that must be seizure free
 stg.fitSzDurS = 2*3600; % Duration of the fitted region before or after the seizure in seconds
@@ -202,7 +194,7 @@ stg.curFitPopNorm = true;
 % Simulated signal characteristics
 stg.normalizePopCur = true; % Normalize fitted curves (sums of exponentials) in population analysis
 stg.simSiCharFltOrder = 3; % 2 exponentials or 3 exponentials
-% stg.simMovAveLen = 3600/stg.iedBlockLenS*4;
+% stg.simMovAveLen = 3600/stg.dpBinLenS*4;
 stg.simMovAveLen = 1;
 
 % Statistics
@@ -336,7 +328,7 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
         [siChar.szBeX, siChar.szBeY(ksubj, :), siChar.szAfX, siChar.szAfY(ksubj, :)]...
             = plotSiCharSz(subjInfo, szCharTbl, siCharTbl, ksubj);
         [siCharFit.szBe(ksubj, :), siCharFit.szAf(ksubj, :)]...
-            = plotSiCharSzFit(subjInfo, szCharTbl, siCharTbl, ksubj); % The fitDurS nad leadTimeS should be > 2*stg.iedBlockLenS
+            = plotSiCharSzFit(subjInfo, szCharTbl, siCharTbl, ksubj); % The fitDurS nad leadTimeS should be > 2*stg.dpBinLenS
         [siCharCur.baseline(ksubj, :), siCharCur.ma(ksubj, :), siCharCur.exp(ksubj, :), siCharCur.expFltB(ksubj, :), siCharCur.expFltA(ksubj, :), siCharCur.tauH(ksubj, :), siCharCur.pwl(ksubj, :), ...
             siCharCur.fe(ksubj, :), siCharCur.fp(ksubj, :)]...
             = plotSiCharSzCur(subjInfo, szCharTbl, siCharTbl, isiHist(ksubj, :), ksubj);
@@ -480,8 +472,8 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     global stg
     
     % If the data for this subject already exist load it
-    if exist([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'], 'file')
-        load([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'],...
+    if exist([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'], 'file')
+        load([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'],...
             'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
         stg.szCharYLbl = szCharLabel;
         stg.siCharYLbl = siCharLabel;
@@ -504,40 +496,112 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     [lblpn, lblN] = getPnN(lblp); % Get path name and datenum
     [subjNm, anStartN, anEndN] = getSubjInfo(lblpn, snlpn, subjNmOrig);
     
+    
     % Initialize seizure-related variables
-    szOnsN = [];
-    szDurN = [];
-    szRac = [];
-    szPow = [];
-    postIctPow = [];
+    ds = struct();
+    % % % % % % % % szOnsN = [];
+    % % % % % % % % szDurN = [];
+    % % % % % % % % szRac = [];
+    % % % % % % % % szPow = [];
+    % % % % % % % % postIctPow = [];
     
-    % Split the time into blocks
-    blN = anStartN : stg.iedBlockLenS/3600/24 : anEndN; % Borders of blocks in datenum
-    numbl = length(blN) - 1; % Number of blocks
     
-    % Initialize signal characteristics-related variables. You can add more or delete some.
-    tax = NaN(numbl, 1);
-    sz = NaN(numbl, 1); % Number of seizures
-    szValidS = NaN(numbl, 1); % How many seconds the siganl was actually valid, i.e. usable for determining the number of seizures. Now equal to for how many seconds there is a recording (regardless of the quality).
-    emgValidS = NaN(numbl, 1);
-    iedValidS = NaN(numbl, 1);
-    crcValidS = NaN(numbl, 1);
-    emg = NaN(numbl, 1); % EMG proportion
-    ied = NaN(numbl, 1); % IED rate
-    art = NaN(numbl, 1); % Artifacts proportion
-    pow = NaN(numbl, 1); % Signal power
-    vrn = NaN(numbl, 1); % Signal variance
-    ac1 = NaN(numbl, 1); % Signal lag-1 autocorrelation function
-    hmw = NaN(numbl, 1); % Half-maximum width of the autocorrelation function
-    crc = NaN(numbl, 1); % Signal cross-correlation function
+    % <LATER>
+    % % % % % Initialize signal characteristics-related variables. You can add more or delete some.
+    % % % % tax = NaN(numbl, 1);
+    % % % % sz = NaN(numbl, 1); % Number of seizures
+    % % % % szValidS = NaN(numbl, 1); % How many seconds the siganl was actually valid, i.e. usable for determining the number of seizures. Now equal to for how many seconds there is a recording (regardless of the quality).
+    % % % % emgValidS = NaN(numbl, 1);
+    % % % % iedValidS = NaN(numbl, 1);
+    % % % % crcValidS = NaN(numbl, 1);
+    % % % % emg = NaN(numbl, 1); % EMG proportion
+    % % % % ied = NaN(numbl, 1); % IED rate
+    % % % % art = NaN(numbl, 1); % Artifacts proportion
+    % % % % pow = NaN(numbl, 1); % Signal power
+    % % % % vrn = NaN(numbl, 1); % Signal variance
+    % % % % ac1 = NaN(numbl, 1); % Signal lag-1 autocorrelation function
+    % % % % hmw = NaN(numbl, 1); % Half-maximum width of the autocorrelation function
+    % % % % crc = NaN(numbl, 1); % Signal cross-correlation function
+    % </LATER>
 
-    fprintf('Block No. 000000/000000'), 
-    for kb = 1 : length(blN) - 1 % Loop over time blocks
-        fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
-        fprintf([num2str(kb, '%06d'), '/', num2str(length(blN) - 1, '%06d'), '\n'])
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This will be in at the top in the control center
+dsName = "Seizure"; % Names of the phenomena to investigate
+dsDesc.(dsName(1)) =...
+    ["onsN",    "durN",    "pow";
+     "double",  "double",  "double";
+     "getOnsN", "getDurS",  "getPow";
+     "Seizure", "Seizure", "Seizure"];
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%     % Initialize the table in a field of the ds structure
+%     for kn = 1 : numel(dsName)
+%         varNames = dsDesc.(dsName(kn))(1, :);
+%         varTypes = dsDesc.(dsName(kn))(2, :);
+%         ds.(dsName(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+%     end
+% 
+%     % Loop over label files
+%     fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+%     for klbl = 1 : numel(lblpn)
+%         fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+%         fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+%         ll = load(lblpn{klbl});
+%         for kn = 1 : numel(dsName) % Over the names of the phenomena
+%             % Initialize a new table which will be filled in and appended to the ds.(dsName(kn)).
+%             numNewRows = sum(ll.lblSet.ClassName == dsDesc.(dsName(kn))(4, 1)); % Number of rows
+%             varNames = dsDesc.(dsName(kn))(1, :);
+%             varTypes = dsDesc.(dsName(kn))(2, :);
+%             newRows = table('Size', [numNewRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+%             for kchar = 1 : size(dsDesc.(dsName(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
+%                 funcHandle = str2func(dsDesc.(dsName(kn))(3, kchar));
+%                 colnm = dsDesc.(dsName(kn))(1, kchar);
+%                 newRows.(colnm) = funcHandle(ll.sigInfo, ll.lblSet, dsDesc.(dsName(kn))(4, 1));
+%             end
+%             ds.(dsName(kn)) = [ds.(dsName(kn)); newRows];
+%         end
+%     end
+% 
+% seizuresss = ds.(dsName(kn))
+
+
+    % Split the time into bins
+    binN = anStartN : stg.dpBinLenS/3600/24 : anEndN; % Borders of bins in datenum
+    numbin = length(binN) - 1; % Number of bins
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% This will be in at the top in the control center
+dpName = ["Valid"; "Count"]; % Names of the phenomena to investigate
+dpDesc.(dpName(1)) =...
+    ["ied",               "fr";
+     "double",            "double";
+     "getValidAmountCh",  "getValidAmountCh";
+     "",                  ""];
+dpDesc.(dpName(2)) =...
+    ["ied",          "fr";
+     "double",       "double";
+     "getCountCh",   "getCountCh";
+     "IED_Janca",    "fast ripple"];
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    dp.tax = binN(2 : end);
+    % Initialize the table in a field of the dp structure
+    for kn = 1 : numel(dpName)
+        varNames = dpDesc.(dpName(kn))(1, :);
+        varTypes = dpDesc.(dpName(kn))(2, :);
+        dp.(dpName(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+    end
+
+
+
+    % Loop over time bins
+    fprintf(['\nBin No. ', num2str(0, '%06d'), '/', num2str(length(binN) - 1, '%06d'), '\n'])
+    for kb = 1 : numbin % Loop over time blocks
+        % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+        fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+        fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(length(binN) - 1, '%06d'), '\n'])
         tol = 0.001/3600/24; % Tolerance in datenum
-        lblfSub = find(lblN > blN(kb) + tol, 1, 'first') - 1 : find(lblN <= blN(kb + 1), 1, 'last'); % Subscript of label file
-        snlfSub = find(snlN > blN(kb) + tol, 1, 'first') - 1 : find(snlN <= blN(kb + 1), 1, 'last'); % Subscript of signal file
+        lblfSub = find(lblN > binN(kb) + tol, 1, 'first') - 1 : find(lblN <= binN(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
+        snlfSub = find(snlN > binN(kb) + tol, 1, 'first') - 1 : find(snlN <= binN(kb + 1), 1, 'last'); % Subscripts of signal file relevant for this bin
         if any(size(lblfSub) ~= size(snlfSub))
             disp(size(lblfSub))
             disp(size(snlfSub))
@@ -549,291 +613,313 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
             warning('Label file and signal file subscripts are not equal')
             pause
         end
-        
+
         % Initialize variables where we save data from each file of given analysis block
-        szOnsNF = cell(1, length(lblfSub)); % Each cell will be related to one file. szOnsNF stands for seizure onset N (i.e. dateNum), F (related to one File)
-        szOffNF = cell(1, length(lblfSub));
-        szRacF = cell(1, length(lblfSub)); % Racine score (behavioral severity)
-        szPowF = cell(1, length(lblfSub)); % Seizure signal power
-        szPostIctPowF = cell(1, length(lblfSub)); % Post-ictal signal power
-        szF = zeros(1, length(lblfSub)); % Number of seizures in each file of the block. Each element of the vector corresponds to one file.
-        szValidSF = NaN(1, length(lblfSub));
-        emgDurSF = NaN(stg.numEegCh, length(lblfSub));
-        emgValidSF = NaN(stg.numEegCh, length(lblfSub));
-        numIedF = NaN(stg.numEegCh, length(lblfSub));
-        iedValidSF = NaN(stg.numEegCh, length(lblfSub));
-        artDurSF = NaN(1, length(lblfSub));
-        crcValidSF = NaN(1, length(lblfSub));
-        siFSnl = cell(size(sigTbl, 1) - stg.numEegCh, 1); % Will contain the actual signal characteristics (e.g. signal power, kurtosis, etc.). Must be a cell array since they have different Fs.
+        % % % % % % % % % % % % % % % szOnsNF = cell(1, length(lblfSub)); % Each cell will be related to one file. szOnsNF stands for seizure onset N (i.e. dateNum), F (related to one File)
+        % % % % % % % % % % % % % % % szOffNF = cell(1, length(lblfSub));
+        % % % % % % % % % % % % % % % szRacF = cell(1, length(lblfSub)); % Racine score (behavioral severity)
+        % % % % % % % % % % % % % % % szPowF = cell(1, length(lblfSub)); % Seizure signal power
+        % % % % % % % % % % % % % % % szPostIctPowF = cell(1, length(lblfSub)); % Post-ictal signal power
+        % % % % % % % % % % % % % % % szF = zeros(1, length(lblfSub)); % Number of seizures in each file of the block. Each element of the vector corresponds to one file.
+        % % % % % % % % % % % % % % % szValidSF = NaN(1, length(lblfSub));
+        % % % % emgDurSF = NaN(stg.numEegCh, length(lblfSub));
+        % % % % emgValidSF = NaN(stg.numEegCh, length(lblfSub));
+        % % % % numIedF = NaN(stg.numEegCh, length(lblfSub));
+        % % % % iedValidSF = NaN(stg.numEegCh, length(lblfSub));
+        % % % % artDurSF = NaN(1, length(lblfSub));
+        % % % % crcValidSF = NaN(1, length(lblfSub));
+        % % % % siFSnl = cell(size(sigTbl, 1) - stg.numEegCh, 1); % Will contain the actual signal characteristics (e.g. signal power, kurtosis, etc.). Must be a cell array since they have different Fs.
         
+
+
+        for kn = 1 : numel(dpName) % Over the names of the phenomena
+            % Initialize a new table which will be filled in and appended to the ds.(dsName(kn)).
+            numRows = numel(lblfSub); % Number of rows
+            varNames = dpDesc.(dpName(kn))(1, :);
+            varTypes = dpDesc.(dpName(kn))(2, :);
+            binTables.(dpName(kn)) = table('Size', [numRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames); % Table of data from all files belonging to this time bin
+        end
+
+
+
         % Loop over files within this block
-        for klf = 1 : length(lblfSub) % k-th label file (out of those relevant for this block)
-            % % % disp(lblpn{lblfSub(klf)})
-            load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblSet')
-% % % % sigInfo_ = sigInfo
-% % % % lblSet_ = lblSet
-            load(snlpn{snlfSub(klf)}, 'sigTbl')
-% % % % sigTbl_ = sigTbl
-            snlChToProcessSub = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match')); % Subscripts of signal channels to be processed (e.g. we may want do ignore accelerometer channels)
-            sigTbl = sigTbl(snlChToProcessSub, :);
-            sigInfo = sigInfo(snlChToProcessSub, :);
-            if ~all(sigInfo.Subject == subjNm)
-                error('_jk Inconsistency of subjects in label file.')
-            end
-            if ~all(sigTbl.Subject == subjNm)
-                error('_jk Inconsistency of subjects in signal file.')
-            end
-            % TODO001 Sometimes, there is a mismatch between time extent of the signal and label file. In the future, fix the data files, so that this does
-            % not happen.
-            if abs(seconds(min(sigInfo.SigStart) - min(sigTbl.SigStart))) > 10 || abs(seconds(min(sigInfo.SigEnd) - min(sigTbl.SigEnd))) > 10 % If start or end times of signal and label file differ by more than 1 s
-                disp(['lblpn ', lblpn{lblfSub(klf)}, 10])
-                disp(['snlpn ', snlpn{snlfSub(klf)}, 10])
-                disp(sigInfo)
-                disp(sigTbl)
-                error('_jk Label file and signal file have different time extent')
-            end
-            sigInfo.SigStart = sigTbl.SigStart; % The signal file's SigStart will be used
-            sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
+        for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
+            ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblSet');
+            % % % load(snlpn{snlfSub(klf)}, 'sigTbl')
+            % % % snlChToProcessSub = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match')); % Subscripts of signal channels to be processed (e.g. we may want do ignore accelerometer channels)
+            % % % sigTbl = sigTbl(snlChToProcessSub, :);
+            % % % sigInfo = sigInfo(snlChToProcessSub, :);
+            % % % if ~all(sigInfo.Subject == subjNm)
+            % % %     error('_jk Inconsistency of subjects in label file.')
+            % % % end
+            % % % if ~all(sigTbl.Subject == subjNm)
+            % % %     error('_jk Inconsistency of subjects in signal file.')
+            % % % end
+            % % % % TODO001 Sometimes, there is a mismatch between time extent of the signal and label file. In the future, fix the data files, so that this does
+            % % % % not happen.
+            % % % if abs(seconds(min(sigInfo.SigStart) - min(sigTbl.SigStart))) > 10 || abs(seconds(min(sigInfo.SigEnd) - min(sigTbl.SigEnd))) > 10 % If start or end times of signal and label file differ by more than 1 s
+            % % %     disp(['lblpn ', lblpn{lblfSub(klf)}, 10])
+            % % %     disp(['snlpn ', snlpn{snlfSub(klf)}, 10])
+            % % %     disp(sigInfo)
+            % % %     disp(sigTbl)
+            % % %     error('_jk Label file and signal file have different time extent')
+            % % % end
+            % % % sigInfo.SigStart = sigTbl.SigStart; % The signal file's SigStart will be used
+            % % % sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
+
+            % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
             tol = 60/3600/24; % Gap of 60 seconds will be tolerated
-            if blN(kb) > datenum(max(sigInfo.SigEnd)) + tol %#ok<*DATNM> % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
-                warning(['Data missing at ', datestr(blN(kb)), '.'])
+            if binN(kb) > datenum(max(ll.sigInfo.SigEnd)) + tol %#ok<*DATNM>
+                warning(['Data missing at ', datestr(binN(kb)), '.'])
                 disp(lblfSub)
                 disp(snlfSub)
-                disp(['Block start: ', datestr(blN(kb))]); %#ok<*DATST>
-                disp(['sigInfo.SigEnd: ', string(min(sigInfo.SigEnd))]);
-                disp(['Difference: ', num2str((datenum(min(sigInfo.SigEnd)) - blN(kb))*3600*24), ' s'])
+                disp(['Block start: ', datestr(binN(kb))]); %#ok<*DATST>
+                disp(['sigInfo.SigEnd: ', string(min(ll.sigInfo.SigEnd))]);
+                disp(['Difference: ', num2str((datenum(min(ll.sigInfo.SigEnd)) - binN(kb))*3600*24), ' s'])
                 continue
             end
             
-            % %%%%%%%%%%%%%%%%%% %
-            % Seizure properties %
-            % %%%%%%%%%%%%%%%%%% %
-            lblSetSz = lblSet(ismember(string(lblSet.ClassName), stg.szClNm), :); % Select only seizures from the lblSet
-            lblSetSz = lblSetSz(lblSetSz.Value >= stg.minSzVal, :); % Select only seizures which have sufficient label value (unsure seizures were assigned low value by the labeler).
-            [tSzF, sigStartN, sigEndN, szOnsNF{klf}, szOffNF{klf}] = uniteMrk(lblSetSz, sigInfo, stg.minIsiS); % tSz ... logical vector along time axis sampled at stg.fsLbl. tSz expands across the whole file not just the block-relevant part.
-            szRacF{klf} = getRacine(szOnsNF{klf}, lblSet);
-            szPowF{klf} = median(getPower(szOnsNF{klf}, szOffNF{klf}, sigTbl), "omitmissing");
-            szPostIctPowF{klf} = median(getPostIctPower(szOffNF{klf}, sigTbl), "omitmissing");
-            
-            % Remove seizures which were in the file but do not belong to this block (sz from the beginning of the first file or end of the last one)
-            szToKeepInd = szOnsNF{klf} >= blN(kb) & szOnsNF{klf} < blN(kb+1);
-            szOnsNF{klf} = szOnsNF{klf}(szToKeepInd);
-            szOffNF{klf} = szOffNF{klf}(szToKeepInd);
-            szRacF{klf} = szRacF{klf}(szToKeepInd);
-            szPowF{klf} = szPowF{klf}(:, szToKeepInd);
-            szPostIctPowF{klf} = szPostIctPowF{klf}(:, szToKeepInd);
-            
-            % Prepare logical vector for removing signal characteristics data occurring outside this block
-            % If it is the first file within the block, remove some data points at the beginning so that t begins at the block beginning
-            toKeepStartNF = max(blN(kb), sigStartN); % In datenum
-            toKeepStartF = floor((toKeepStartNF - sigStartN)*3600*24*stg.fsLbl) + 1; % Index
-            toKeepEndNF = min(blN(kb+1), sigEndN);
-            toKeepEndF = floor((toKeepEndNF - sigStartN)*3600*24*stg.fsLbl);
-            Ts = 1/stg.fsLbl/3600/24;
-            lblTaxNF = (toKeepStartF : toKeepEndF)*Ts + sigStartN;
-            lblTaxNF2 = toKeepStartNF + Ts : Ts : toKeepEndNF;
-            toKeepEndFfromTax2 = toKeepStartF + length(lblTaxNF2) - 1;
-            if abs(toKeepEndFfromTax2 - toKeepEndF) > 1 % Just for me to check. They should be equal
-                disp(['toKeepEndF=', num2str(toKeepEndF), ', toKeepEndF2=', num2str(toKeepEndFfromTax2)])
-            end
-            
-            % Take only the portion of tSz belonging to the analysis block
-            tSzF = tSzF(toKeepStartF : toKeepEndF); % First usage of toKeepStartF adn toKeepEndF
-            
-            % Seizure rate data
-            szValidSF(1, klf) = (toKeepEndNF - toKeepStartNF)*24*3600;
-            szF(1, klf) = length(szOnsNF{klf}); % Number of seizures in each file of the block. Each element of the vector corresponds to one file.
-            
-            % %%%%%%%%%%%%%%%%%%%%%% %
-            % Signal characteristics %
-            % %%%%%%%%%%%%%%%%%%%%%% %
-            tArtF = NaN(stg.numEegCh, numel(lblTaxNF)); % t at the beginning means it is a logical signal sampled at stg.fsLbl (originally set at 10 Hz, i.e. rather fine resolution). If the sample is true, it means that given sample is contaminated by artifact.
-            tContamF = NaN(stg.numEegCh, numel(lblTaxNF));
-            lblSetArt = lblSet(ismember(string(lblSet.ClassName), stg.artClNm), :);
-            lblSetEmg = lblSet(lblSet.ClassName == stg.emgClNm, :); % Get only the EMG labels
-            lblSetIed = lblSet(lblSet.ClassName == stg.iedClNm, :); % Get only the IED labels
-            for kch = 1 : size(sigInfo, 1) % Over channels
-                % Remove artifacts
-                lblSetArtCh = lblSetArt(lblSetArt.Channel == kch, :);
-                [tArtFCh, sigStartN, sigEndN, ~, ~] = uniteMrk(lblSetArtCh, sigInfo, 0); % tArtFCh relates to one channel only
-                tArtFCh = tArtFCh(toKeepStartF : toKeepEndF);
-                tArtF(kch, :) = tArtFCh; % We will do OR function (any()), therefore the calculation is different from EMG or IED data
-                
-                lblSetEmgCh = lblSetEmg(lblSetEmg.Channel == kch, :);
-                [tEmgF, ~, ~, ~, ~] = uniteMrk(lblSetEmgCh, sigInfo, 0); % tEmgF relates to one channel only
-                tEmgF = double(tEmgF(toKeepStartF : toKeepEndF));
-                tEmgF = tEmgF & ~(tArtFCh | tSzF); % Keep only tEmgF where there are no artifacts. Where there are artifacts, it is not counted as EMG.
-                emgValidSF(kch, klf) = sum(double(~(tArtFCh | tSzF)))/stg.fsLbl;
-                emgDurSF(kch, klf) = sum(double(tEmgF))/stg.fsLbl; % We will average over channels later
-                
-                tSzF2 = logical(conv(tSzF, ones(1, stg.afterSzMarginS*stg.fsLbl + 1))); % Dilate tSzF on the right side because seizures often have afterdischarges which we do not want to be detected as IEDs
-                tSzF2 = tSzF2(1 : numel(tSzF));
-                if stg.removeEmgContaminatedTF
-                    tContamF(kch, :) = tSzF2 | tArtFCh | tEmgF; % Take them together. t == true marks a contaminated sample of the signal which should be removed from the analysis.
-                else
-                    tContamF(kch, :) = tSzF2 | tArtFCh; % Take them together. t == true marks a contaminated sample of the signal which should be removed from the analysis.
+            for kn = 1 : numel(dpName) % Over the names of the phenomena
+                for kchar = 1 : size(dpDesc.(dpName(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
+                    funcHandle = str2func(dpDesc.(dpName(kn))(3, kchar));
+                    colnm = dpDesc.(dpName(kn))(1, kchar); % Column name
+                    numch = height(ll.sigInfo);
+                    binTables.(dpName(kn)).(colnm)(klf, 1 : numch) = funcHandle(ll.sigInfo, ll.lblSet, dpDesc.(dpName(kn))(4, kchar));
                 end
-                [contamOnNF, contamOffNF] = tToOON(tContamF(kch, :), toKeepStartNF, stg.fsLbl); % This relates to seizure in any channel, but artifacts and EMG channels specific
-                
-                % Count the total duration of the signal not contaminated by seizures, EMG and other artifacts
-                iedValidSF(kch, klf) = sum(double(~tContamF(kch, :)))/stg.fsLbl;
-                
-                % Count the IEDs
-                lblSetIed = lblSetIed(lblSetIed.Channel == kch, :); % Get only this channel
-                % Remove IEDs occurring when the signal is contaminated
-                for kco = 1 : length(contamOnNF)
-                    lblSetIed(datenum(lblSetIed.Start) > contamOnNF(kco) & datenum(lblSetIed.Start) < contamOffNF(kco), :) = [];
-                end
-                numIedF(kch, klf) = countMrk(lblSetIed, sigStartN, sigEndN, blN(kb), blN(kb+1)); % Also removes markers within the file but outside the block
             end
-            tArtF = any(tArtF, 1);
-            artDurSF(1, klf) = sum(double(tArtF))/stg.fsLbl;
-            crcValidSF(1, klf) = sum(double(all(~tContamF, 1)))/stg.fsLbl;
             
-            % Signals (critical slowing, locomotor activity, etc.)
-            for kch = 1 : size(sigTbl, 1) - stg.numEegCh
-                % Critical slowing
-                snlInd = kch + stg.numEegCh; % Index of the desired signal (i.e. not an EEG channel)
-                Ts = 1/sigTbl.Fs(snlInd)/3600/24; % Sampling period in datenum
-                schTaxNF = datenum(sigTbl.SigStart(snlInd) + Ts : Ts : sigTbl.SigEnd(snlInd)); % In datenum
-                siFCh = sigTbl.Data{snlInd}; % Signal - this File only and this Channel only
-                siFCh = siFCh(schTaxNF > blN(kb) & schTaxNF < blN(kb+1)); % Cut out only the desired portion
-                schTaxNF = schTaxNF(schTaxNF > blN(kb) & schTaxNF < blN(kb+1)); % Cut out only the desired portion of the time axis (this order of the statements is mandatory since snlTaxNF is used above)
-                if ~isnan(stg.snlDecontaminationCh(kch))
-                    if stg.snlDecontaminationCh(kch) == -1
-                        tContamFDec = any(tContamF, 1); % tContamF used for decontamination
-                    else
-                        tContamFDec = tContamF(stg.snlDecontaminationCh(kch), :);
-                    end
-                    for k = 1 : length(schTaxNF) % Loop through samples and if they were contaminated, substitute them by NaN
-                        lblIndices = (lblTaxNF > schTaxNF(k) - Ts & lblTaxNF < schTaxNF(k)); % Indices of label samples which belong to the period from the snl sample was computed. I.e. indices into tContamFDec
-                        if any(tContamFDec(lblIndices))
-                            siFCh(k) = NaN;
-                        end
-                    end
-                end % Otherwise do not do anything, i.e. the contaminated samples will be kept
-                siFSnl{kch, klf} = siFCh;
-            end
+            % % % % % % % % % % % % % % % % % % % % % % %%%%%%%%%%%%%%%%%% %
+            % % % % % % % % % % % % % % % % % % % % % % Seizure properties %
+            % % % % % % % % % % % % % % % % % % % % % % %%%%%%%%%%%%%%%%%% %
+            % % % % % % % % % % % % % % % % % % % % % lblSetSz = lblSet(ismember(string(lblSet.ClassName), stg.szClNm), :); % Select only seizures from the lblSet
+            % % % % % % % % % % % % % % % % % % % % % lblSetSz = lblSetSz(lblSetSz.Value >= stg.minSzVal, :); % Select only seizures which have sufficient label value (unsure seizures were assigned low value by the labeler).
+            % % % % % % % % % % % % % % % % % % % % % [tSzF, sigStartN, sigEndN, szOnsNF{klf}, szOffNF{klf}] = uniteMrk(lblSetSz, sigInfo, stg.minIsiS); % tSz ... logical vector along time axis sampled at stg.fsLbl. tSz expands across the whole file not just the block-relevant part.
+            % % % % % % % % % % % % % % % % % % % % % szRacF{klf} = getRacine(szOnsNF{klf}, lblSet);
+            % % % % % % % % % % % % % % % % % % % % % szPowF{klf} = median(getPower(szOnsNF{klf}, szOffNF{klf}, sigTbl), "omitmissing");
+            % % % % % % % % % % % % % % % % % % % % % szPostIctPowF{klf} = median(getPostIctPower(szOffNF{klf}, sigTbl), "omitmissing");
+            % % % % % % % % % % % % % % % % % % % % % 
+            % % % % % % % % % % % % % % % % % % % % % % Remove seizures which were in the file but do not belong to this block (sz from the beginning of the first file or end of the last one)
+            % % % % % % % % % % % % % % % % % % % % % szToKeepInd = szOnsNF{klf} >= binN(kb) & szOnsNF{klf} < binN(kb+1);
+            % % % % % % % % % % % % % % % % % % % % % szOnsNF{klf} = szOnsNF{klf}(szToKeepInd);
+            % % % % % % % % % % % % % % % % % % % % % szOffNF{klf} = szOffNF{klf}(szToKeepInd);
+            % % % % % % % % % % % % % % % % % % % % % szRacF{klf} = szRacF{klf}(szToKeepInd);
+            % % % % % % % % % % % % % % % % % % % % % szPowF{klf} = szPowF{klf}(:, szToKeepInd);
+            % % % % % % % % % % % % % % % % % % % % % szPostIctPowF{klf} = szPostIctPowF{klf}(:, szToKeepInd);
+            % % % % % % % % % % % % % % % % % % % % % 
+            % % % % % % % % % % % % % % % % % % % % % % Prepare logical vector for removing signal characteristics data occurring outside this block
+            % % % % % % % % % % % % % % % % % % % % % % If it is the first file within the block, remove some data points at the beginning so that t begins at the block beginning
+            % % % % % % % % % % % % % % % % % % % % % toKeepStartNF = max(binN(kb), sigStartN); % In datenum
+            % % % % % % % % % % % % % % % % % % % % % toKeepStartF = floor((toKeepStartNF - sigStartN)*3600*24*stg.fsLbl) + 1; % Index
+            % % % % % % % % % % % % % % % % % % % % % toKeepEndNF = min(binN(kb+1), sigEndN);
+            % % % % % % % % % % % % % % % % % % % % % toKeepEndF = floor((toKeepEndNF - sigStartN)*3600*24*stg.fsLbl);
+            % % % % % % % % % % % % % % % % % % % % % Ts = 1/stg.fsLbl/3600/24;
+            % % % % % % % % % % % % % % % % % % % % % lblTaxNF = (toKeepStartF : toKeepEndF)*Ts + sigStartN;
+            % % % % % % % % % % % % % % % % % % % % % lblTaxNF2 = toKeepStartNF + Ts : Ts : toKeepEndNF;
+            % % % % % % % % % % % % % % % % % % % % % toKeepEndFfromTax2 = toKeepStartF + length(lblTaxNF2) - 1;
+            % % % % % % % % % % % % % % % % % % % % % if abs(toKeepEndFfromTax2 - toKeepEndF) > 1 % Just for me to check. They should be equal
+            % % % % % % % % % % % % % % % % % % % % %     disp(['toKeepEndF=', num2str(toKeepEndF), ', toKeepEndF2=', num2str(toKeepEndFfromTax2)])
+            % % % % % % % % % % % % % % % % % % % % % end
+            % % % % % % % % % % % % % % % % % % % % % 
+            % % % % % % % % % % % % % % % % % % % % % % Take only the portion of tSz belonging to the analysis block
+            % % % % % % % % % % % % % % % % % % % % % tSzF = tSzF(toKeepStartF : toKeepEndF); % First usage of toKeepStartF adn toKeepEndF
+            % % % % % % % % % % % % % % % % % % % % % 
+            % % % % % % % % % % % % % % % % % % % % % % Seizure rate data
+            % % % % % % % % % % % % % % % % % % % % % szValidSF(1, klf) = (toKeepEndNF - toKeepStartNF)*24*3600;
+            % % % % % % % % % % % % % % % % % % % % % szF(1, klf) = length(szOnsNF{klf}); % Number of seizures in each file of the block. Each element of the vector corresponds to one file.
+            
+            % % % % % %%%%%%%%%%%%%%%%%%%%%% %
+            % % % % % Signal characteristics %
+            % % % % % %%%%%%%%%%%%%%%%%%%%%% %
+            % % % % tArtF = NaN(stg.numEegCh, numel(lblTaxNF)); % t at the beginning means it is a logical signal sampled at stg.fsLbl (originally set at 10 Hz, i.e. rather fine resolution). If the sample is true, it means that given sample is contaminated by artifact.
+            % % % % tContamF = NaN(stg.numEegCh, numel(lblTaxNF));
+            % % % % lblSetArt = lblSet(ismember(string(lblSet.ClassName), stg.artClNm), :);
+            % % % % lblSetEmg = lblSet(lblSet.ClassName == stg.emgClNm, :); % Get only the EMG labels
+            % % % % lblSetIed = lblSet(lblSet.ClassName == stg.iedClNm, :); % Get only the IED labels
+            % % % % for kch = 1 : size(sigInfo, 1) % Over channels
+            % % % %     % Remove artifacts
+            % % % %     lblSetArtCh = lblSetArt(lblSetArt.Channel == kch, :);
+            % % % %     [tArtFCh, sigStartN, sigEndN, ~, ~] = uniteMrk(lblSetArtCh, sigInfo, 0); % tArtFCh relates to one channel only
+            % % % %     tArtFCh = tArtFCh(toKeepStartF : toKeepEndF);
+            % % % %     tArtF(kch, :) = tArtFCh; % We will do OR function (any()), therefore the calculation is different from EMG or IED data
+            % % % % 
+            % % % %     lblSetEmgCh = lblSetEmg(lblSetEmg.Channel == kch, :);
+            % % % %     [tEmgF, ~, ~, ~, ~] = uniteMrk(lblSetEmgCh, sigInfo, 0); % tEmgF relates to one channel only
+            % % % %     tEmgF = double(tEmgF(toKeepStartF : toKeepEndF));
+            % % % %     tEmgF = tEmgF & ~(tArtFCh | tSzF); % Keep only tEmgF where there are no artifacts. Where there are artifacts, it is not counted as EMG.
+            % % % %     emgValidSF(kch, klf) = sum(double(~(tArtFCh | tSzF)))/stg.fsLbl;
+            % % % %     emgDurSF(kch, klf) = sum(double(tEmgF))/stg.fsLbl; % We will average over channels later
+            % % % % 
+            % % % %     tSzF2 = logical(conv(tSzF, ones(1, stg.afterSzMarginS*stg.fsLbl + 1))); % Dilate tSzF on the right side because seizures often have afterdischarges which we do not want to be detected as IEDs
+            % % % %     tSzF2 = tSzF2(1 : numel(tSzF));
+            % % % %     if stg.removeEmgContaminatedTF
+            % % % %         tContamF(kch, :) = tSzF2 | tArtFCh | tEmgF; % Take them together. t == true marks a contaminated sample of the signal which should be removed from the analysis.
+            % % % %     else
+            % % % %         tContamF(kch, :) = tSzF2 | tArtFCh; % Take them together. t == true marks a contaminated sample of the signal which should be removed from the analysis.
+            % % % %     end
+            % % % %     [contamOnNF, contamOffNF] = tToOON(tContamF(kch, :), toKeepStartNF, stg.fsLbl); % This relates to seizure in any channel, but artifacts and EMG channels specific
+            % % % % 
+            % % % %     % Count the total duration of the signal not contaminated by seizures, EMG and other artifacts
+            % % % %     iedValidSF(kch, klf) = sum(double(~tContamF(kch, :)))/stg.fsLbl;
+            % % % % 
+            % % % %     % Count the IEDs
+            % % % %     lblSetIed = lblSetIed(lblSetIed.Channel == kch, :); % Get only this channel
+            % % % %     % Remove IEDs occurring when the signal is contaminated
+            % % % %     for kco = 1 : length(contamOnNF)
+            % % % %         lblSetIed(datenum(lblSetIed.Start) > contamOnNF(kco) & datenum(lblSetIed.Start) < contamOffNF(kco), :) = [];
+            % % % %     end
+            % % % %     numIedF(kch, klf) = countMrk(lblSetIed, sigStartN, sigEndN, binN(kb), binN(kb+1)); % Also removes markers within the file but outside the block
+            % % % % end
+            % % % % tArtF = any(tArtF, 1);
+            % % % % artDurSF(1, klf) = sum(double(tArtF))/stg.fsLbl;
+            % % % % crcValidSF(1, klf) = sum(double(all(~tContamF, 1)))/stg.fsLbl;
+            % % % % 
+            % % % % % Signals (critical slowing, locomotor activity, etc.)
+            % % % % for kch = 1 : size(sigTbl, 1) - stg.numEegCh
+            % % % %     % Critical slowing
+            % % % %     snlInd = kch + stg.numEegCh; % Index of the desired signal (i.e. not an EEG channel)
+            % % % %     Ts = 1/sigTbl.Fs(snlInd)/3600/24; % Sampling period in datenum
+            % % % %     schTaxNF = datenum(sigTbl.SigStart(snlInd) + Ts : Ts : sigTbl.SigEnd(snlInd)); % In datenum
+            % % % %     siFCh = sigTbl.Data{snlInd}; % Signal - this File only and this Channel only
+            % % % %     siFCh = siFCh(schTaxNF > binN(kb) & schTaxNF < binN(kb+1)); % Cut out only the desired portion
+            % % % %     schTaxNF = schTaxNF(schTaxNF > binN(kb) & schTaxNF < binN(kb+1)); % Cut out only the desired portion of the time axis (this order of the statements is mandatory since snlTaxNF is used above)
+            % % % %     if ~isnan(stg.snlDecontaminationCh(kch))
+            % % % %         if stg.snlDecontaminationCh(kch) == -1
+            % % % %             tContamFDec = any(tContamF, 1); % tContamF used for decontamination
+            % % % %         else
+            % % % %             tContamFDec = tContamF(stg.snlDecontaminationCh(kch), :);
+            % % % %         end
+            % % % %         for k = 1 : length(schTaxNF) % Loop through samples and if they were contaminated, substitute them by NaN
+            % % % %             lblIndices = (lblTaxNF > schTaxNF(k) - Ts & lblTaxNF < schTaxNF(k)); % Indices of label samples which belong to the period from the snl sample was computed. I.e. indices into tContamFDec
+            % % % %             if any(tContamFDec(lblIndices))
+            % % % %                 siFCh(k) = NaN;
+            % % % %             end
+            % % % %         end
+            % % % %     end % Otherwise do not do anything, i.e. the contaminated samples will be kept
+            % % % %     siFSnl{kch, klf} = siFCh;
+            % % % % end
         end % Over files within the block
-        
-        % %%%%%%%%%%%%%%%%%%%%% %
-        % Get into block vector %
-        % %%%%%%%%%%%%%%%%%%%%% %
-        % Seizure data
-        szOnsNBl = cell2mat(szOnsNF);
-        szOffNBl = cell2mat(szOffNF);
-        szRacBl = cell2mat(szRacF);
-        szPowBl = cell2mat(szPowF);
-        szPostIctPowBl = cell2mat(szPostIctPowF);
-        szOnsN = [szOnsN, szOnsNBl]; %#ok<AGROW>
-        szDurN = [szDurN, szOffNBl - szOnsNBl]; %#ok<AGROW>
-        szRac = [szRac, szRacBl]; %#ok<AGROW>
-        szPow = [szPow, szPowBl]; %#ok<AGROW>
-        postIctPow = [postIctPow, szPostIctPowBl]; %#ok<AGROW>
-        
-        tax(kb, 1) = blN(kb + 1); % It is kb + 1 because we want the block end not beginning. The block should be assigned the timestamp of its end because that is the moment we have had acquired all its data.
-        szValidS(kb, 1) = sum(szValidSF);
-        emgValidS(kb, 1) = sum(mean(emgValidSF, 1));
-        iedValidS(kb, 1) = sum(mean(iedValidSF, 1));
-        crcValidS(kb, 1) = sum(crcValidSF);
-        sz(kb, 1) = sum(szF)/szValidS(kb, 1); % Number of seizures in the block (normalized to the total duration of the valid signal)
-        sz(kb, 1) = sz(kb, 1)*3600*24; % Number of seizures per day (normalized to the total duration of the valid signal)
-        
-        artDurSF(szValidSF == 0) = NaN;
-        art(kb, 1) = 100*mean(sum(artDurSF, 2)./sum(szValidSF, 2), 'omitmissing'); % Convert to %
-        if isnan(art(kb, 1))
-            sz(kb, 1) = NaN;
+        for kn = 1 : numel(dpName) % Over the names of the phenomena
+            dp.(dpName(kn)) = [dp.(dpName(kn)); mean(binTables.(dpName(kn)))];
         end
-        if art(kb, 1) == Inf || art(kb, 1) == -Inf
-            disp('Artifact proportion infinite')
-            disp(artDurSF)
-            disp(szValidSF)
-            pause
-        end
-        
-        emgDurSF(emgValidSF == 0) = NaN;
-        emg(kb, 1) = 100*mean(sum(emgDurSF, 2)./sum(emgValidSF, 2), 1, 'omitmissing'); % Convert to %
-        if emg(kb, 1) == Inf || emg(kb, 1) == -Inf
-            disp('EMG proportion infinite')
-            disp(emgDurSF)
-            disp(emgValidSF)
-            pause
-        end
-        
-        numIedF(iedValidSF == 0) = NaN;
-        ied(kb, 1) = mean(sum(numIedF, 2)./sum(iedValidSF, 2), 1, 'omitmissing')*3600; % Convert it to IED/hour
-        if ied(kb, 1) == Inf || ied(kb, 1) == -Inf
-            disp('IED rate infinite')
-            disp(numIedF)
-            disp(iedValidSF)
-            pause
-        end
-        
-        if all(cellfun(@isempty, siFSnl))
-            continue
-        end
-        schBl = cell2mat(siFSnl);
-        schBl = mean(schBl, 2, "omitmissing");
-        pow(kb, 1) = mean(schBl(1 : 4), 1, "omitmissing")/1e6; % Convert from uV2 to mV2
-        vrn(kb, 1) = mean(schBl(5 : 8), 1, "omitmissing")/1e6; % Convert from uV2 to mV2
-        ac1(kb, 1) = mean(schBl(9 : 12), 1, "omitmissing");
-        hmw(kb, 1) = mean(schBl(13 : 16), 1, "omitmissing");
-        crc(kb, 1) = schBl(17, :);
-        
     end
-    
-    % Join seizures too close together
-    tooEarly = find((szOnsN(2 : end) - (szOnsN(1 : end-1) + szDurN(1 : end-1))) < stg.minIsiS/24/3600);
-    szDurN(tooEarly) = (szOnsN(tooEarly + 1) + szDurN(tooEarly + 1)) - szOnsN(tooEarly);
-    szRac(tooEarly) = max([szRac(tooEarly), szRac(tooEarly + 1)]);
-    szPow(tooEarly) = mean([szPow(tooEarly); szPow(tooEarly + 1)]);
-    postIctPow(tooEarly) = postIctPow(tooEarly + 1);
-    szOnsN(tooEarly + 1) = [];
-    szDurN(tooEarly + 1) = [];
-    szRac(tooEarly + 1) = [];
-    szPow(tooEarly + 1) = [];
-    postIctPow(tooEarly + 1) = [];
-    szOnsN = szOnsN';
-    szDurS = szDurN'*24*3600; % Convert from days to seconds
-    szRac = szRac';
-    szPow = szPow'/1e6; % Convert from uV2 to mV2
-    postIctPow = postIctPow'/1e6; % Convert from uV2 to mV2
-    % szOnsStr = datestr(szOnsN); %#ok<*DATST>
-% size(szOnsN), size(szDurS), size(szRac), size(szPow), size(postIctPow), size(szOnsStr)
-    % szCharTbl = table(szOnsN, szDurS, szRac, szPow, postIctPow, szOnsStr);
-    szCharTbl = table(szOnsN, szDurS, szRac, szPow, postIctPow);
-    % szCharLabel = {'Sz time', ['Duration', 10, '(s)'], ['Severity', 10, '(Racine)'], ['Sz pwr', 10, '(mV^2)'], ['Post pwr', 10, '(mV^2)']}; % Short and tall
-    szCharLabel = {'Sz time', 'Duration (s)', 'Severity (Racine)', 'Sz pwr (mV^2)', 'Post pwr (mV^2)'};
-    siCharTbl = table(tax, szValidS, emgValidS, iedValidS, crcValidS,...
-        sz, art, emg, ied, pow, vrn, ac1, hmw, crc);
-    % siCharLabel = {'Time (days)', ['Valid', 10, 'sz (s)'], ['Valid', 10, 'EMG (s)'], ['Valid', 10, 'IED (s)'], ['Valid', 10, 'CrC (s)'],...
-    %     'Sz/day', 'Art %', ['EMG', 10, '%'], ['IED', 10, 'rate'], 'Power', 'Var', ['Auto', 10, 'corr'], 'HMW', ['Cross', 10, 'corr']};
-    siCharLabel = {'Time (days)', 'Valid sz (s)', 'Valid EMG (s)', 'Valid IED (s)', 'Valid CrC (s)',...
-        'Sz/day', 'Artif %', 'EMG %', 'IED/hour', 'Power', 'Variance', 'Auto-corr', 'HMW', 'Cross-corr'};
-    subjInfo.subjNm = subjNm;
-    subjInfo.subjNmOrig = subjInfo.subjNm;
-    subjInfo.anStartN = anStartN;
-    subjInfo.anEndN = anEndN;
-    subjNumber = regexp(subjNm, '\D\D\d\d\d+', 'match');
-    subjNumber = subjNumber{1}(3 : end);
-    whichSubj = find(contains(string(dobTable{:, 1}), subjNumber));
-    if ~isscalar(whichSubj)
-        error(['_jk Date of birth table has multiple subjects which have ', num2str(subjNumber), ' in their name.'])
-    end
-    subjInfo.dob = datenum(dobTable{whichSubj, 2});
-    % % % subjInfo.dob = datenum(dobTable{string(dobTable{:, 1}) == subjNm, 2});
-    subjInfo.sex = dobTable{string(dobTable{:, 1}) == subjNm, 3};
-    stg.szCharYLbl = szCharLabel;
-    stg.siCharYLbl = siCharLabel;
-    stg.saCharYLbl = [szCharLabel, siCharLabel];
-    stg.ssCharYLbl = [siCharLabel, siCharLabel];
-    if isa(subjInfo.dob, 'table')
-        subjInfo.dob = datenum(subjInfo.dob{1, 1});
-    end
-    if ~stg.keepOriginalSubjectName
-        subjInfo.subjNm = ['Mouse', num2str(stg.subjNumber(ksubj), '%02d')];
-    end
-    save([stg.dataFolder, 'Data-', num2str(stg.iedBlockLenS), '-', char(subjNmOrig), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
+% % % %         % %%%%%%%%%%%%%%%%%%%%% %
+% % % %         % Get into block vector %
+% % % %         % %%%%%%%%%%%%%%%%%%%%% %
+% % % %         % Seizure data
+% % % %         szOnsNBl = cell2mat(szOnsNF);
+% % % %         szOffNBl = cell2mat(szOffNF);
+% % % %         szRacBl = cell2mat(szRacF);
+% % % %         szPowBl = cell2mat(szPowF);
+% % % %         szPostIctPowBl = cell2mat(szPostIctPowF);
+% % % %         szOnsN = [szOnsN, szOnsNBl]; %#ok<AGROW>
+% % % %         szDurN = [szDurN, szOffNBl - szOnsNBl]; %#ok<AGROW>
+% % % %         szRac = [szRac, szRacBl]; %#ok<AGROW>
+% % % %         szPow = [szPow, szPowBl]; %#ok<AGROW>
+% % % %         postIctPow = [postIctPow, szPostIctPowBl]; %#ok<AGROW>
+% % % % 
+% % % %         tax(kb, 1) = binN(kb + 1); % It is kb + 1 because we want the block end not beginning. The block should be assigned the timestamp of its end because that is the moment we have had acquired all its data.
+% % % %         szValidS(kb, 1) = sum(szValidSF);
+% % % %         emgValidS(kb, 1) = sum(mean(emgValidSF, 1));
+% % % %         iedValidS(kb, 1) = sum(mean(iedValidSF, 1));
+% % % %         crcValidS(kb, 1) = sum(crcValidSF);
+% % % %         sz(kb, 1) = sum(szF)/szValidS(kb, 1); % Number of seizures in the block (normalized to the total duration of the valid signal)
+% % % %         sz(kb, 1) = sz(kb, 1)*3600*24; % Number of seizures per day (normalized to the total duration of the valid signal)
+% % % % 
+% % % %         artDurSF(szValidSF == 0) = NaN;
+% % % %         art(kb, 1) = 100*mean(sum(artDurSF, 2)./sum(szValidSF, 2), 'omitmissing'); % Convert to %
+% % % %         if isnan(art(kb, 1))
+% % % %             sz(kb, 1) = NaN;
+% % % %         end
+% % % %         if art(kb, 1) == Inf || art(kb, 1) == -Inf
+% % % %             disp('Artifact proportion infinite')
+% % % %             disp(artDurSF)
+% % % %             disp(szValidSF)
+% % % %             pause
+% % % %         end
+% % % % 
+% % % %         emgDurSF(emgValidSF == 0) = NaN;
+% % % %         emg(kb, 1) = 100*mean(sum(emgDurSF, 2)./sum(emgValidSF, 2), 1, 'omitmissing'); % Convert to %
+% % % %         if emg(kb, 1) == Inf || emg(kb, 1) == -Inf
+% % % %             disp('EMG proportion infinite')
+% % % %             disp(emgDurSF)
+% % % %             disp(emgValidSF)
+% % % %             pause
+% % % %         end
+% % % % 
+% % % %         numIedF(iedValidSF == 0) = NaN;
+% % % %         ied(kb, 1) = mean(sum(numIedF, 2)./sum(iedValidSF, 2), 1, 'omitmissing')*3600; % Convert it to IED/hour
+% % % %         if ied(kb, 1) == Inf || ied(kb, 1) == -Inf
+% % % %             disp('IED rate infinite')
+% % % %             disp(numIedF)
+% % % %             disp(iedValidSF)
+% % % %             pause
+% % % %         end
+% % % % 
+% % % %         if all(cellfun(@isempty, siFSnl))
+% % % %             continue
+% % % %         end
+% % % %         schBl = cell2mat(siFSnl);
+% % % %         schBl = mean(schBl, 2, "omitmissing");
+% % % %         pow(kb, 1) = mean(schBl(1 : 4), 1, "omitmissing")/1e6; % Convert from uV2 to mV2
+% % % %         vrn(kb, 1) = mean(schBl(5 : 8), 1, "omitmissing")/1e6; % Convert from uV2 to mV2
+% % % %         ac1(kb, 1) = mean(schBl(9 : 12), 1, "omitmissing");
+% % % %         hmw(kb, 1) = mean(schBl(13 : 16), 1, "omitmissing");
+% % % %         crc(kb, 1) = schBl(17, :);
+% % % % 
+% % % %     end
+% % % % 
+% % % %     % Join seizures too close together
+% % % %     tooEarly = find((szOnsN(2 : end) - (szOnsN(1 : end-1) + szDurN(1 : end-1))) < stg.minIsiS/24/3600);
+% % % %     szDurN(tooEarly) = (szOnsN(tooEarly + 1) + szDurN(tooEarly + 1)) - szOnsN(tooEarly);
+% % % %     szRac(tooEarly) = max([szRac(tooEarly), szRac(tooEarly + 1)]);
+% % % %     szPow(tooEarly) = mean([szPow(tooEarly); szPow(tooEarly + 1)]);
+% % % %     postIctPow(tooEarly) = postIctPow(tooEarly + 1);
+% % % %     szOnsN(tooEarly + 1) = [];
+% % % %     szDurN(tooEarly + 1) = [];
+% % % %     szRac(tooEarly + 1) = [];
+% % % %     szPow(tooEarly + 1) = [];
+% % % %     postIctPow(tooEarly + 1) = [];
+% % % %     szOnsN = szOnsN';
+% % % %     szDurS = szDurN'*24*3600; % Convert from days to seconds
+% % % %     szRac = szRac';
+% % % %     szPow = szPow'/1e6; % Convert from uV2 to mV2
+% % % %     postIctPow = postIctPow'/1e6; % Convert from uV2 to mV2
+% % % %     % szOnsStr = datestr(szOnsN); %#ok<*DATST>
+% % % % % size(szOnsN), size(szDurS), size(szRac), size(szPow), size(postIctPow), size(szOnsStr)
+% % % %     % szCharTbl = table(szOnsN, szDurS, szRac, szPow, postIctPow, szOnsStr);
+% % % %     szCharTbl = table(szOnsN, szDurS, szRac, szPow, postIctPow);
+% % % %     % szCharLabel = {'Sz time', ['Duration', 10, '(s)'], ['Severity', 10, '(Racine)'], ['Sz pwr', 10, '(mV^2)'], ['Post pwr', 10, '(mV^2)']}; % Short and tall
+% % % %     szCharLabel = {'Sz time', 'Duration (s)', 'Severity (Racine)', 'Sz pwr (mV^2)', 'Post pwr (mV^2)'};
+% % % %     siCharTbl = table(tax, szValidS, emgValidS, iedValidS, crcValidS,...
+% % % %         sz, art, emg, ied, pow, vrn, ac1, hmw, crc);
+% % % %     % siCharLabel = {'Time (days)', ['Valid', 10, 'sz (s)'], ['Valid', 10, 'EMG (s)'], ['Valid', 10, 'IED (s)'], ['Valid', 10, 'CrC (s)'],...
+% % % %     %     'Sz/day', 'Art %', ['EMG', 10, '%'], ['IED', 10, 'rate'], 'Power', 'Var', ['Auto', 10, 'corr'], 'HMW', ['Cross', 10, 'corr']};
+% % % %     siCharLabel = {'Time (days)', 'Valid sz (s)', 'Valid EMG (s)', 'Valid IED (s)', 'Valid CrC (s)',...
+% % % %         'Sz/day', 'Artif %', 'EMG %', 'IED/hour', 'Power', 'Variance', 'Auto-corr', 'HMW', 'Cross-corr'};
+% % % %     subjInfo.subjNm = subjNm;
+% % % %     subjInfo.subjNmOrig = subjInfo.subjNm;
+% % % %     subjInfo.anStartN = anStartN;
+% % % %     subjInfo.anEndN = anEndN;
+% % % %     subjNumber = regexp(subjNm, '\D\D\d\d\d+', 'match');
+% % % %     subjNumber = subjNumber{1}(3 : end);
+% % % %     whichSubj = find(contains(string(dobTable{:, 1}), subjNumber));
+% % % %     if ~isscalar(whichSubj)
+% % % %         error(['_jk Date of birth table has multiple subjects which have ', num2str(subjNumber), ' in their name.'])
+% % % %     end
+% % % %     subjInfo.dob = datenum(dobTable{whichSubj, 2});
+% % % %     % % % subjInfo.dob = datenum(dobTable{string(dobTable{:, 1}) == subjNm, 2});
+% % % %     subjInfo.sex = dobTable{string(dobTable{:, 1}) == subjNm, 3};
+% % % %     stg.szCharYLbl = szCharLabel;
+% % % %     stg.siCharYLbl = siCharLabel;
+% % % %     stg.saCharYLbl = [szCharLabel, siCharLabel];
+% % % %     stg.ssCharYLbl = [siCharLabel, siCharLabel];
+% % % %     if isa(subjInfo.dob, 'table')
+% % % %         subjInfo.dob = datenum(subjInfo.dob{1, 1});
+% % % %     end
+% % % %     if ~stg.keepOriginalSubjectName
+% % % %         subjInfo.subjNm = ['Mouse', num2str(stg.subjNumber(ksubj), '%02d')];
+% % % %     end
+% % % %     save([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
     
     function [subjNm, anStartN, anEndN] = getSubjInfo(lblpn, snlpn, subjNmOrig)
         load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet') %#ok<NASGU>
@@ -1128,8 +1214,8 @@ function [clust, szBelongsToClust, stats] = extractClusters(subjInfo, szCharTbl,
     clust = clust(~clusterTooLongTF);
 
     % Find significant dropouts
-    significanceThresholdN = max([1/24, 1.01*stg.iedBlockLenS/3600/24, min(diff(szCharTbl.szOnsN))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
-    % minSignDropDurS = 2*stg.iedBlockLenS; % Minimum duration of the dropout to be considered significant (resulting in exclusion of cluster containing it or being to soon after it or too late before it)
+    significanceThresholdN = max([1/24, 1.01*stg.dpBinLenS/3600/24, min(diff(szCharTbl.szOnsN))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
+    % minSignDropDurS = 2*stg.dpBinLenS; % Minimum duration of the dropout to be considered significant (resulting in exclusion of cluster containing it or being to soon after it or too late before it)
     % significanceThresholdN = max(minSignDropDurS/3600/24, min(diff(szCharTbl.szOnsN))); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
     % significanceThresholdN = minSignDropDurS/3600/24;
     tax = siCharTbl.tax;
@@ -4027,7 +4113,7 @@ function [diffBe, diffAf] = plotSiCharSzBeAfVsOther(subjInfo, szCharTbl, siCharT
         % Get average waveform of IED rate
         myyTblCell{kfp} = stg.withinSubjectStat(yyTbl, 'omitmissing');
         xLen = numel(xxTbl{1, 1});
-        daysTF = (xLen-1)*stg.iedBlockLenS/3600/24 > 1.5; % Will the time units in the plot be days or hours?
+        daysTF = (xLen-1)*stg.dpBinLenS/3600/24 > 1.5; % Will the time units in the plot be days or hours?
         normFactor = daysTF*(24-1) + 1;
         if daysTF
             timeUnit = '(days)';
@@ -4036,10 +4122,10 @@ function [diffBe, diffAf] = plotSiCharSzBeAfVsOther(subjInfo, szCharTbl, siCharT
         end
         switch fitPosition(kfp)
             case "before"
-                xpCell{kfp} = (-(xLen-1)*stg.iedBlockLenS/3600 : stg.iedBlockLenS/3600 : 0)/normFactor;
+                xpCell{kfp} = (-(xLen-1)*stg.dpBinLenS/3600 : stg.dpBinLenS/3600 : 0)/normFactor;
                 diffBe = yThis - yOther;
             case "after"
-                xpCell{kfp} = (0 : stg.iedBlockLenS/3600 : (xLen-1)*stg.iedBlockLenS/3600)/normFactor;
+                xpCell{kfp} = (0 : stg.dpBinLenS/3600 : (xLen-1)*stg.dpBinLenS/3600)/normFactor;
                 diffAf = yThis - yOther;
         end
         if plotTF
@@ -4069,7 +4155,7 @@ function [xBeH, myyBeTbl, xAfH, myyAfTbl] = plotSiCharSz(subjInfo, szCharTbl, si
         [~, xxTbl, yyTbl, ~, ~] = fitSiCharSz(subjInfo, szCharTbl, siCharTbl, fitPosition(kfp));
         myyTblCell{kfp} = stg.withinSubjectStat(yyTbl, 'omitmissing');
         xLen = numel(xxTbl{1, 1});
-        daysTF = (xLen-1)*stg.iedBlockLenS/3600/24 > 1.5;
+        daysTF = (xLen-1)*stg.dpBinLenS/3600/24 > 1.5;
         normFactor = daysTF*(24-1) + 1;
         if daysTF
             timeUnit = '(days)';
@@ -4078,9 +4164,9 @@ function [xBeH, myyBeTbl, xAfH, myyAfTbl] = plotSiCharSz(subjInfo, szCharTbl, si
         end
         switch fitPosition(kfp)
             case "before"
-                xpCell{kfp} = (-(xLen-1)*stg.iedBlockLenS/3600 : stg.iedBlockLenS/3600 : 0)/normFactor;
+                xpCell{kfp} = (-(xLen-1)*stg.dpBinLenS/3600 : stg.dpBinLenS/3600 : 0)/normFactor;
             case "after"
-                xpCell{kfp} = (0 : stg.iedBlockLenS/3600 : (xLen-1)*stg.iedBlockLenS/3600)/normFactor;
+                xpCell{kfp} = (0 : stg.dpBinLenS/3600 : (xLen-1)*stg.dpBinLenS/3600)/normFactor;
         end
         if plotTF
             plotColor = ones(size(yyTbl, 1), 1)*stg.subjColor(ksubj, :);
@@ -4365,7 +4451,7 @@ function [baseline, ma, curExp, curExpFltB, curExpFltA, curExpTauH, curPwl, fe, 
     [~, xxTbl, yyTbl, ~, ~] = fitSiCharSz(subjInfo, szCharTbl, siCharTbl, "after");
     myyTbl = stg.withinSubjectStat(yyTbl, 'omitmissing');
     xLen = numel(xxTbl{1, 1});
-    xH = 0 : stg.iedBlockLenS/3600 : (xLen-1)*stg.iedBlockLenS/3600;
+    xH = 0 : stg.dpBinLenS/3600 : (xLen-1)*stg.dpBinLenS/3600;
     xD = xH/24;
     if plotTF
         if stg.fitSzDurS/3600/24 <= 1.5
@@ -4478,7 +4564,7 @@ function [baselinePop, maPop, fltBPop, fltAPop, fePop] = plotSiCharSzCurAllPop(s
     numChar = numel(stg.siCharToPlot);
     positionCm = [20, 10, 0.8*stg.singleColumnWidth, min(25, stg.siCharHe*numChar)];
     [plotTF, plotName] = createFigPos(positionCm);
-    xH = 0 : stg.iedBlockLenS/3600 : (numel(tax)-1)*stg.iedBlockLenS/3600;
+    xH = 0 : stg.dpBinLenS/3600 : (numel(tax)-1)*stg.dpBinLenS/3600;
     u1 = zeros(size(xH)); % Vector for unit impulse for drawing the impulse response
     u1(1) = 1; % Unit impulse
     if plotTF
@@ -4715,7 +4801,7 @@ function [risingTbl, risingClTbl, risingNonClTbl] = siCharRisingAroundSz(szCharT
     risingNonClTbl = risingTbl;
     for kchar = 1 : numChar
         y = siCharTbl{:, stg.siCharToPlot(kchar)};
-        y = fillmissing(y, 'linear', 1, 'MaxGap', ceil(4*3600/stg.iedBlockLenS));
+        y = fillmissing(y, 'linear', 1, 'MaxGap', ceil(4*3600/stg.dpBinLenS));
         y = filter(1/stg.simMovAveLen*ones(1, stg.simMovAveLen), 1, y);
         posTF = NaN(numSz, 1);
         for ksz = 1 : numSz
@@ -5420,7 +5506,7 @@ function plotSsExplainSumOfExp(siCharCurPop)
         h.f.(plotName).Units = stg.units;
         h.a.(plotName) = axes('Units', stg.units, 'Position', [spx, spy, spWi, spHe]);
         expDurS = 24*3600; % Exponential durations
-        tax = (stg.iedBlockLenS/10) : (stg.iedBlockLenS/10) : expDurS;
+        tax = (stg.dpBinLenS/10) : (stg.dpBinLenS/10) : expDurS;
         x = tax/3600;
         coeff = coeffvalues(siCharCurPop.fe{1});
         for ke = 1 : numel(coeff)/2
@@ -5479,7 +5565,7 @@ function plotSsExplainConvolution(subjInfo, siCharTbl, siCharCurPop)
             plot(x, y, 'Marker', 'none', 'LineWidth', 2, 'Color', hsv2rgb(ksz/size(szSub, 1), 1, 1), 'Tag', 'simIedInd');
             hold on
         end
-        y = filter(siCharCurPop.expFltB{1, 1}, siCharCurPop.expFltA{1, 1}, siCharTbl.sz*stg.iedBlockLenS/3600/24);
+        y = filter(siCharCurPop.expFltB{1, 1}, siCharCurPop.expFltA{1, 1}, siCharTbl.sz*stg.dpBinLenS/3600/24);
         simMovAveLen = stg.simMovAveLen;
         ySm = filter(1/simMovAveLen*ones(1, simMovAveLen), 1, y); % Smoothed
         hpSmSim = plot(x, ySm, 'Marker', 'none', 'LineStyle', ':', 'LineWidth', 2, 'Color', [0.6 0.6 0.6], 'Tag', 'simIed');
@@ -5610,7 +5696,7 @@ function [paxTbl, psdTbl, psdciTbl] = psdSiChar(siCharTbl)
     global stg
     charToPlot = ["sz", stg.siCharToPlot];
     numChar = numel(charToPlot);
-    Ts = stg.iedBlockLenS/3600/24;
+    Ts = stg.dpBinLenS/3600/24;
     paxpax = cell(1, numChar); psdpsd = cell(1, numChar); psdcipsdci = cell(1, numChar); % Initialization
     for kchar = 1 : numChar
         y = siCharTbl.(charToPlot(kchar));
@@ -5694,7 +5780,7 @@ function [fitTbl, ed, xxTbl, yyTbl, xxFitTbl, yyFitTbl] = fitSzCharWh(subjInfo, 
             % Compute the value in the given bin
             if kchar == 1
                 % y(kb) = numel(szSub)/(ed(kb+1) - ed(kb)); % Does not take into account recording dropouts
-                y(kb) = numel(szSub)/(numValidDatapoints*stg.iedBlockLenS)*3600*24; % Does not take into account recording dropouts
+                y(kb) = numel(szSub)/(numValidDatapoints*stg.dpBinLenS)*3600*24; % Does not take into account recording dropouts
             else
                 if isempty(szSub)
                     y(kb) = NaN;
@@ -5771,7 +5857,7 @@ function [fitTbl, eded, xxTbl, yyTbl, xxFitTbl, yyFitTbl] = fitSzCharCl(subjInfo
                 % Compute the value in the given bin
                 if kchar == 1
                     y(kb) = numel(szSub)/(ed(kb+1) - ed(kb)); % Does not take into account recording dropouts
-                    % % % % % y(kb) = numel(szSub)/(numValidDatapoints*stg.iedBlockLenS);
+                    % % % % % y(kb) = numel(szSub)/(numValidDatapoints*stg.dpBinLenS);
                 else
                     if isempty(szSub)
                         y(kb) = NaN;
@@ -5972,7 +6058,7 @@ function [fitTbl, ed, xxSzTbl, yySzTbl, xxSiTbl, yySiTbl, xxFitTbl, yyFitTbl] = 
             % Compute the value in the given bin
             if kchar == 1
                 % y(kb) = numel(szSub)/(ed(kb+1) - ed(kb)); % Does not take into account recording dropouts
-                y(kb) = numel(szSub)/(numValidDatapoints*stg.iedBlockLenS)*3600*24;
+                y(kb) = numel(szSub)/(numValidDatapoints*stg.dpBinLenS)*3600*24;
             else
                 if isempty(szSub)
                     y(kb) = NaN;
@@ -6242,7 +6328,7 @@ function [cirTbl, edSz, ppSzTbl, rrSzTbl, edSi, ppSiTbl, rrSiTbl, ppCirTbl, rrCi
     end
     
     %% Circular - signals
-    binlenH = stg.iedBlockLenS/3600; % In hours
+    binlenH = stg.dpBinLenS/3600; % In hours
     siTod = siCharTbl.tax - floor(siCharTbl.tax); % Time of the day of the signal characeteristics time axis
     edSi = (0 : binlenH : 24)/24; % From 0 to 1
     ppSi = cell(1, numSiChar); rrSi = cell(1, numSiChar);
@@ -6267,7 +6353,7 @@ function [cirTbl, edSz, ppSzTbl, rrSzTbl, edSi, ppSiTbl, rrSiTbl, ppCirTbl, rrCi
         rrCir{kchar+numSzChar} = [0, cirTbl{1, kchar+numSzChar + 3*numChar}];
         % % % rayCir{kchar+numSzChar} = circ_rtest(p', r'); % Probably incorrect use
         if stg.saCharToPlot(kchar+numSzChar) == "ied"
-            r = r*binlenH/(stg.iedBlockLenS/3600);
+            r = r*binlenH/(stg.dpBinLenS/3600);
             rayCir{kchar+numSzChar} = circ_rtest(p', r'); % Should be OK since IED occurrence is in fact binned data.
         else
             rayCir{kchar+numSzChar} = NaN;
@@ -6480,7 +6566,7 @@ function [fitTbl, xxTbl, yyTbl, xxFitTbl, yyFitTbl, xxOtherTbl, yyOtherTbl] = ar
     xxOther = cell(1, numChar); yyOther = cell(1, numChar);
     if numSz == 0
         for kchar = 1 : numChar
-            len = stg.fitSzDurS/stg.iedBlockLenS + 1;
+            len = stg.fitSzDurS/stg.dpBinLenS + 1;
             x = NaN(len, 1);
             y = NaN(len, 1);
             fitTbl = fillInFit(fitTbl, 1, kchar, numChar, x, y);
@@ -6574,7 +6660,7 @@ function [fitTbl, xxTbl, yyTbl, xxFitTbl, yyFitTbl] = fitSiCharSz(subjInfo, szCh
     taxSub = cell(numSz, numChar); xx = cell(numSz, numChar); yy = cell(numSz, numChar); xxFit = cell(numSz, numChar); yyFit = cell(numSz, numChar);
     if numSz == 0
         for kchar = 1 : numChar
-            len = stg.fitSzDurS/stg.iedBlockLenS + 1;
+            len = stg.fitSzDurS/stg.dpBinLenS + 1;
             x = NaN(len, 1);
             y = NaN(len, 1);
             fitTbl = fillInFit(fitTbl, 1, kchar, numChar, x, y);
@@ -6653,7 +6739,7 @@ end
 function [fecoeff, amplitudes, decayFactors, tauH, fe, gofe] = fitExponentials(x, y, baseline, varargin)
     global stg
     if isempty(varargin)
-        stSub = max(2, (60/stg.iedBlockLenS + 1)); % Start subscript
+        stSub = max(2, (60/stg.dpBinLenS + 1)); % Start subscript
     else
         stSub = varargin{1};
     end
@@ -6694,8 +6780,8 @@ function [fecoeff, amplitudes, decayFactors, tauH, fe, gofe] = fitExponentials(x
         'StartPoint', stPt, 'Lower', stPt./20.^sign(stPt), 'Upper', stPt.*20.^sign(stPt)); % Fit Exponential, Goodness Of Fit Exponential
     fecoeff = [coeffvalues(fe), gofe.adjrsquare, gofe.rmse];
     amplitudes = fecoeff(1 : 2 : end - 2); % Last two are R^2 and RMSE and not coefficients of the exponentials
-    decayFactors = exp(stg.iedBlockLenS/3600*fecoeff(2 : 2 : end - 2)); % Convert rates of decay to decay factors (essentially poles of the filter)
-    tauH = stg.iedBlockLenS/3600./(-log(decayFactors)); % The same as below
+    decayFactors = exp(stg.dpBinLenS/3600*fecoeff(2 : 2 : end - 2)); % Convert rates of decay to decay factors (essentially poles of the filter)
+    tauH = stg.dpBinLenS/3600./(-log(decayFactors)); % The same as below
     % % % tauH = 1./-fecoeff(2 : 2 : end - 2); % The same as above. The fecoeff(2 : 2 : end - 2) are in the same units as x (probably hours)
 end
 function [b, a] = designFiltFromExponentials(decayFactors, amplitudes)
@@ -6710,7 +6796,7 @@ function [b, a] = designFiltFromExponentials(decayFactors, amplitudes)
 end
 function [fpcoeff, fp, gofp] = fitPowerLaw(x, y, baseline)
     global stg
-    stSub = max(2, round((60/stg.iedBlockLenS + 1))); % Start subscript
+    stSub = max(2, round((60/stg.dpBinLenS + 1))); % Start subscript
     [fp, gofp] = fit(x(stSub:end)', y(stSub:end)' - baseline, 'power1');
     fpcoeff = [coeffvalues(fp), gofp.adjrsquare, gofp.rmse];
 end
@@ -6759,9 +6845,9 @@ function [rmsnrmse, rho, pval, rmsnrmsePop, rhoPop, pvalPop] = simulatedDataSimi
     pvalPop = NaN(1, numel(stg.siCharToPlot));
     for kchar = 1 : numel(stg.siCharToPlot)
         % Get data
-        ori = fillmissing(siCharTbl.(stg.siCharToPlot(kchar)), 'linear', 1, 'MaxGap', ceil(4*3600/stg.iedBlockLenS));
-        sim = fillmissing(siCharTbl.(stg.siCharToPlot(kchar) + "Sim"), 'linear', 1, 'MaxGap', ceil(4*3600/stg.iedBlockLenS));
-        simPop = fillmissing(siCharTbl.(stg.siCharToPlot(kchar) + "SimPop"), 'linear', 1, 'MaxGap', ceil(4*3600/stg.iedBlockLenS));
+        ori = fillmissing(siCharTbl.(stg.siCharToPlot(kchar)), 'linear', 1, 'MaxGap', ceil(4*3600/stg.dpBinLenS));
+        sim = fillmissing(siCharTbl.(stg.siCharToPlot(kchar) + "Sim"), 'linear', 1, 'MaxGap', ceil(4*3600/stg.dpBinLenS));
+        simPop = fillmissing(siCharTbl.(stg.siCharToPlot(kchar) + "SimPop"), 'linear', 1, 'MaxGap', ceil(4*3600/stg.dpBinLenS));
         % Smooth
         ori = filter(1/stg.simMovAveLen*ones(1, stg.simMovAveLen), 1, ori);
         sim = filter(1/stg.simMovAveLen*ones(1, stg.simMovAveLen), 1, sim);
@@ -7135,14 +7221,14 @@ function plotSaCharDataCWT(plotName, ksubj, subjInfo, szCharTbl, siCharTbl) %#ok
         h.a.(plotName)(ksubj, kchar) = axes('Units', stg.units, 'Position', [...
             spx(mod(ksubj - 1, numc) + 1), spy(ceil(ksubj/numc)) - (kchar - numChar)*spHe/numChar, spWi, spHe/numChar]);
         hax = h.a.(plotName)(ksubj, kchar);
-        fs = 1/stg.iedBlockLenS*3600*24; % Frequency is in cycles per day
+        fs = 1/stg.dpBinLenS*3600*24; % Frequency is in cycles per day
         if kchar <= numSzChar
             % Plot seizures
             y = siCharTbl.sz;
             % y = fillmissing(y, 'linear', 'MaxGap', 6);
             y = fillmissing(y, 'linear');
             [wt, fax, coi] = cwtPiecewiseGemini(tax, y, fs); % Frequency is in cycles per day
-            % [cfs, fax] = cwt(y, 1/stg.iedBlockLenS*3600*24); % Frequency is in cycles per day
+            % [cfs, fax] = cwt(y, 1/stg.dpBinLenS*3600*24); % Frequency is in cycles per day
             % % % h.p.(plotName)(ksubj, kchar, 1) = imagesc("XData",tax,"YData",fax,"CData",abs(wt),"CDataMapping","scaled");
             % h.p.(plotName)(ksubj, kchar, 1) = imagesc(tax, fax, abs(wt), 'Parent', hax);
             h.p.(plotName)(ksubj, kchar, 1) = pcolor(tax, fax, abs(wt));
@@ -7159,7 +7245,7 @@ function plotSaCharDataCWT(plotName, ksubj, subjInfo, szCharTbl, siCharTbl) %#ok
             y = fillmissing(y, 'linear');
             % % % y = 0.5*sin(2*pi*0.25*tax) + 0.5*sin(2*pi*1*tax) + 0.5*sin(2*pi*2*tax);
             [wt, fax] = cwtPiecewiseGemini(tax, y, fs); % Frequency is in cycles per day
-            % [cfs, fax] = cwt(y, 1/stg.iedBlockLenS*3600*24); % Frequency is in cycles per day
+            % [cfs, fax] = cwt(y, 1/stg.dpBinLenS*3600*24); % Frequency is in cycles per day
             % % % h.p.(plotName)(ksubj, kchar, 1) = image("XData",tax,"YData",fax,"CData",abs(wt),"CDataMapping","scaled");
             % h.p.(plotName)(ksubj, kchar, 1) = imagesc(tax, fax, abs(wt), 'Parent', hax);
             h.p.(plotName)(ksubj, kchar, 1) = pcolor(tax, fax, abs(wt));
@@ -7437,7 +7523,7 @@ function plotSsCharData(plotName, ksubj, subjInfo, szCharTbl, siCharTbl)
             h.p.(plotName)(kchar, ksubj, 3) = plot(x, y, 'Marker', 'none', 'LineWidth', 2, 'Color', stg.simColor);
             % Plot signal characteristic
             y = siCharTbl{:, stg.siCharToPlot(kchar)};
-            y = fillmissing(y, 'linear', 1, 'MaxGap', ceil(4*3600/stg.iedBlockLenS));
+            y = fillmissing(y, 'linear', 1, 'MaxGap', ceil(4*3600/stg.dpBinLenS));
             y = filter(1/stg.simMovAveLen*ones(1, stg.simMovAveLen), 1, y);
             x = siCharTbl.tax - subjInfo.dob;
             h.p.(plotName)(kchar, ksubj, 3) = plot(x, y, 'Marker', 'none', 'LineWidth', 0.5, 'Color', 'k');
@@ -7456,7 +7542,7 @@ function plotSsCharData(plotName, ksubj, subjInfo, szCharTbl, siCharTbl)
             h.p.(plotName)(kchar, ksubj, 3) = plot(x, y, 'Marker', 'none', 'LineWidth', 2, 'Color', stg.simPopColor);
             % Plot artificial signal characteristic
             y = siCharTbl{:, stg.siCharToPlot(kchar  - numSiChar)};
-            y = fillmissing(y, 'linear', 1, 'MaxGap', ceil(4*3600/stg.iedBlockLenS));
+            y = fillmissing(y, 'linear', 1, 'MaxGap', ceil(4*3600/stg.dpBinLenS));
             y = filter(1/stg.simMovAveLen*ones(1, stg.simMovAveLen), 1, y);
             x = siCharTbl.tax - subjInfo.dob;
             h.p.(plotName)(kchar, ksubj, 3) = plot(x, y, 'Marker', 'none', 'LineWidth', 0.5, 'Color', 'k');
@@ -8024,8 +8110,8 @@ function printFigures
         nFig = find(endsWith(fn, figNm{k}, 'IgnoreCase', true));
         figure(h.f.(figNm{k}))
         % filen = [char(datetime('now', 'Format', 'yyMMdd_HHmmss')), ' ', num2str(nFig, '%02d'), ...
-        %    figNm{k}, ' N=', num2str(stg.numSubj, '%02d'), ' T=', num2str(stg.iedBlockLenS, '%06d'),];
-        filen = [figNm{k}, ' N=', num2str(stg.numSubj, '%02d'), ' T=', num2str(stg.iedBlockLenS, '%06d'),];
+        %    figNm{k}, ' N=', num2str(stg.numSubj, '%02d'), ' T=', num2str(stg.dpBinLenS, '%06d'),];
+        filen = [figNm{k}, ' N=', num2str(stg.numSubj, '%02d'), ' T=', num2str(stg.dpBinLenS, '%06d'),];
         savefig(gcf, ['./_fig/', filen, '.fig'])
         print(['./_eps/', filen, '.eps'], '-depsc', '-vector')
         print(['./_jpg/', filen, '.jpg'], '-djpeg', '-r1800')
@@ -8079,7 +8165,7 @@ function [x, y, xx] = getSzOkXY(subjInfo, siCharTbl)
     x1 = siCharTbl.tax - subjInfo.dob;
     x = NaN(3*numel(x1), 1);
     x(1 : 3 : end - 2) = x1;
-    x(2 : 3 : end - 1) = x1 + stg.iedBlockLenS/3600/24;
+    x(2 : 3 : end - 1) = x1 + stg.dpBinLenS/3600/24;
 
     y1 = zeros(size(x1));
     y1(isnan(siCharTbl.art)) = NaN; % siCharTbl.art is NaN where there is no signal (due to dropout)

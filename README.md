@@ -11,7 +11,7 @@ Structure containing subject name (code), date of birth, and start and end of th
 #### ds
 Data for stem. These data will be shown by the stem type of graph. Structure containing dynamically named fields according to what is analyzed. Each field contains a table. In the table, each row belongs to one event, each column to one characteristic of the event. The first column will always be the onset time of the event in datenum.
 ##### Example
-- ds.Seiz ... table where the first column is "onsN" (onset, N indicates datenum format), then there could be columns like "durS" (duration in seconds), "pow" (signal power), etc.
+- ds.Seizure ... table where the first column is "onsN" (onset, N indicates datenum format), then there could be columns like "durS" (duration in seconds), "pow" (signal power), etc.
 - ds.Drink ... columns could be "onsN", "durS", "volM" (volume drank in milliliters)
 #### dp
 Data for plot. These data will be plotted by line graphs. The data were analyzed in time bins (windows, blocks), e.g. 1-hour bins. The structure has 3 fields, each containing a table.
@@ -27,5 +27,27 @@ Rates of the patterns computed as count/timeOfUsableSignal. timeOfUsableSignal d
 The user may also define some characteristics of the EEG patterns (e.g. spike amplitude or polarity). The computation of the characteristic should be implemented for each pattern (e.g. mean, median or maximum across all realization in given bin).
 
 ### Computation
-The main part of the function will manage the division of the data into time bins. Function for specific calculations will be implemented for given application.
+The main part of the function will manage the division of the data into time bins.
+Function for specific calculations will be implemented for given application.
+
+### Input
+Input to getData function includes: dsName, dsDescr.
+
+#### dsName
+A string column vector containing the names of the event types (often OSEL label classes).
+
+#### dsDescr
+A structure with fields named by the strings in dsName.
+Each field contains a 2D string array.
+
+Columns: Characteristics of the event (must include onsN, i.e. onset in datenum).
+
+Rows:
+1. Characteristic name
+2. Characteristic data type (double, logical, ...)
+3. Name of the function which will calculate the values.
+4. Name of the label class which will be used to get the values.
+
+
+
 
