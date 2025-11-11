@@ -571,17 +571,19 @@ dsDesc.(dsName(1)) =...
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dpName = ["Valid"; "Count"]; % Names of the phenomena to investigate
+dpName = ["Valid"; "Count"]; % Types of tables that will be created (possibly, it could be all in one table).
 dpDesc.(dpName(1)) =...
-    ["ied",               "fr";
+    {"ied",               "fr";
      "double",            "double";
      "getValidAmountCh",  "getValidAmountCh";
-     "",                  ""];
+     "",                  ""};
 dpDesc.(dpName(2)) =...
-    ["ied",          "fr";
+    {"ied",          "fr";
      "double",       "double";
      "getCountCh",   "getCountCh";
-     "IED_Janca",    "fast ripple"];
+     "IED_Janca",    "fast ripple"};
+assignin('base', 'dpDesc', dpDesc)
+crash
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dp.tax = binN(2 : end);
     % Initialize the table in a field of the dp structure
