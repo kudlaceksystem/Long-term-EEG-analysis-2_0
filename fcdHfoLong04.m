@@ -528,10 +528,10 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
 % This will be in at the top in the control center
 dsName = "Seizure"; % Names of the phenomena to investigate
 dsDesc.(dsName(1)) =...
-    {"onsN",    "durN",    "pow";
-     "double",  "double",  "double";
-     "getOnsN", "getDurS",  "getPow";
-     "Seizure", "Seizure", "Seizure"};
+    {"onsN",            "durN",             "pow";
+     "double",          "double",           "double";
+     "getData.getOnsN", "getData.getDurS",  "getData.getPow";
+     "Seizure",         "Seizure",          "Seizure"};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %     % Initialize the table in a field of the ds structure
@@ -563,7 +563,7 @@ dsDesc.(dsName(1)) =...
 %     end
 % 
 % seizuresss = ds.(dsName(kn))
-
+% 
 
     % Split the time into bins
     binN = anStartN : stg.dpBinLenS/3600/24 : anEndN; % Borders of bins in datenum
@@ -571,27 +571,27 @@ dsDesc.(dsName(1)) =...
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dpName = ["Valid"; "Count"]; % Types of tables that will be created (possibly, it could be all in one table).
+dpDesc.Name = ["Valid"; "Count"]; % Types of tables that will be created (possibly, it could be all in one table).
 contamIed = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
-dpDesc.(dpName(1)) =...
-    {"ied",               "fr"; % Name of the column
-     "double",            "double"; % Type of the column
-     "getValidAmountCh",  "getValidAmountCh"; % Function which will calculate the contents of the column
-     "IED_Janca",         "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
-     contamIed,           contamIed}; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
-dpDesc.(dpName(2)) =...
-    {"ied",          "fr";
-     "double",       "double";
-     "getCountCh",   "getCountCh";
-     "IED_Janca",    "fast ripple";
-     contamIed,      contamIed};
+dpDesc.(dpDesc.Name(1)) =...
+    {"ied",                       "fr"; % Name of the column
+     "double",                    "double"; % Type of the column
+     "getData.getValidAmountCh",  "getData.getValidAmountCh"; % Function which will calculate the contents of the column
+     "IED_Janca",                 "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
+     contamIed,                   contamIed}; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
+dpDesc.(dpDesc.Name(2)) =...
+    {"ied",                       "fr";
+     "double",                    "double";
+     "getData.getCountCh",        "getData.getCountCh";
+     "IED_Janca",                 "fast ripple";
+     contamIed,                   contamIed};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dp.tax = binN(2 : end);
     % Initialize the table in a field of the dp structure
-    for kn = 1 : numel(dpName)
-        varNames = [dpDesc.(dpName(kn)){1, :}];
-        varTypes = [dpDesc.(dpName(kn)){2, :}];
-        dp.(dpName(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+    for kn = 1 : numel(dpDesc.Name)
+        varNames = [dpDesc.(dpDesc.Name(kn)){1, :}];
+        varTypes = [dpDesc.(dpDesc.Name(kn)){2, :}];
+        dp.(dpDesc.Name(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
     end
 
 
@@ -635,12 +635,12 @@ dpDesc.(dpName(2)) =...
         
 
 
-        for kn = 1 : numel(dpName) % Over the names of the phenomena
+        for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
             % Initialize a new table which will be filled in and appended to the ds.(dsName(kn)).
             numRows = numel(lblfSub); % Number of rows
-            varNames = [dpDesc.(dpName(kn)){1, :}];
-            varTypes = [dpDesc.(dpName(kn)){2, :}];
-            binTables.(dpName(kn)) = table('Size', [numRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames); % Table of data from all files belonging to this time bin
+            varNames = [dpDesc.(dpDesc.Name(kn)){1, :}];
+            varTypes = [dpDesc.(dpDesc.Name(kn)){2, :}];
+            binTables.(dpDesc.Name(kn)) = table('Size', [numRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames); % Table of data from all files belonging to this time bin
         end
 
 
@@ -682,12 +682,12 @@ dpDesc.(dpName(2)) =...
                 continue
             end
             
-            for kn = 1 : numel(dpName) % Over the names of the phenomena
-                for kchar = 1 : size(dpDesc.(dpName(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
-                    funcHandle = str2func(dpDesc.(dpName(kn)){3, kchar});
-                    colnm = dpDesc.(dpName(kn)){1, kchar}; % Column name
+            for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
+                for kchar = 1 : size(dpDesc.(dpDesc.Name(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
+                    funcHandle = str2func(dpDesc.(dpDesc.Name(kn)){3, kchar});
+                    colnm = dpDesc.(dpDesc.Name(kn)){1, kchar}; % Column name
                     numch = height(ll.sigInfo);
-                    binTables.(dpName(kn)).(colnm)(klf, 1 : numch) = funcHandle(ll, ll, dpDesc.(dpName(kn))(4, kchar)); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                    binTables.(dpDesc.Name(kn)).(colnm)(klf, 1 : numch) = funcHandle(ll, ll, dpDesc.(dpDesc.Name(kn))(4, kchar)); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
                 end
             end
             
@@ -801,8 +801,8 @@ dpDesc.(dpName(2)) =...
             % % % %     siFSnl{kch, klf} = siFCh;
             % % % % end
         end % Over files within the block
-        for kn = 1 : numel(dpName) % Over the names of the phenomena
-            dp.(dpName(kn)) = [dp.(dpName(kn)); mean(binTables.(dpName(kn)))];
+        for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
+            dp.(dpDesc.Name(kn)) = [dp.(dpDesc.Name(kn)); mean(binTables.(dpDesc.Name(kn)))];
         end
     end
 % % % %         % %%%%%%%%%%%%%%%%%%%%% %
