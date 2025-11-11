@@ -1,3 +1,4 @@
+return
 % This script takes label files and optionally signal files and creates long-term profiles of labeled patterns and transients
 % In this version, I am simplifying the getData function, mainly removing the analysis of critical slowing. The original version is in fcdHfoLong02.m.
 analyzeIndividualSubjects = 1;

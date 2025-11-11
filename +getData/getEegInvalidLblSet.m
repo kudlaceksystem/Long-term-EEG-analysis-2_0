@@ -1,4 +1,4 @@
-function lblSetInv = getEegInvalidLblSet(ll, clnm, ~)
+function lblSetInv = getEegInvalidLblSet(ll, clnm)
     % ll ....... contents of OSEL label file, i.e. sigInfo, lblDef, lblSet
     % lblSet ... table defined by OSEL system, contains onset, duration, etc.
     % clnm ..... class name - which label class from the lblSet should be used

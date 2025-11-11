@@ -494,7 +494,7 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     % Get the file names
     [snlpn, snlN] = getPnN(snlp); % Get path name and datenum
     [lblpn, lblN] = getPnN(lblp); % Get path name and datenum
-    [subjNm, anStartN, anEndN] = getSubjInfo(lblpn, snlpn, subjNmOrig);
+    [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, snlpn, subjNmOrig);
     
     
     % Initialize seizure-related variables
@@ -526,19 +526,21 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dsName = "Seizure"; % Names of the phenomena to investigate
-dsDesc.(dsName(1)) =...
+dsDesc.Name = "Seizure"; % Names of the phenomena to investigate
+contamSz = "";
+dsDesc.(dsDesc.Name(1)) =...
     {"onsN",            "durN",             "pow";
      "double",          "double",           "double";
      "getData.getOnsN", "getData.getDurS",  "getData.getPow";
-     "Seizure",         "Seizure",          "Seizure"};
+     "Seizure",         "Seizure",          "Seizure";
+     contamSz,          contamSz,           contamSz};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %     % Initialize the table in a field of the ds structure
-%     for kn = 1 : numel(dsName)
-%         varNames = [dsDesc.(dsName(kn)){1, :}];
-%         varTypes = [dsDesc.(dsName(kn)){2, :}];
-%         ds.(dsName(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+%     for kn = 1 : numel(dsDesc.Name)
+%         varNames = [dsDesc.(dsDesc.Name(kn)){1, :}];
+%         varTypes = [dsDesc.(dsDesc.Name(kn)){2, :}];
+%         ds.(dsDesc.Name(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
 %     end
 % 
 %     % Loop over label files
@@ -547,27 +549,33 @@ dsDesc.(dsName(1)) =...
 %         fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
 %         fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
 %         ll = load(lblpn{klbl});
-%         for kn = 1 : numel(dsName) % Over the names of the phenomena
-%             % Initialize a new table which will be filled in and appended to the ds.(dsName(kn)).
-%             numNewRows = sum(ll.lblSet.ClassName == dsDesc.(dsName(kn)){4, 1}); % Number of rows
-%             varNames = [dsDesc.(dsName(kn)){1, :}];
-%             varTypes = [dsDesc.(dsName(kn)){2, :}];
+%         for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
+%             % Initialize a new table which will be filled in and appended to the ds.(dpDesc.Name(kn)).
+%             numNewRows = sum(ll.lblSet.ClassName == dsDesc.(dsDesc.Name(kn)){4, 1}); % Number of rows
+%             varNames = [dsDesc.(dsDesc.Name(kn)){1, :}];
+%             varTypes = [dsDesc.(dsDesc.Name(kn)){2, :}];
 %             newRows = table('Size', [numNewRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
-%             for kchar = 1 : size(dsDesc.(dsName(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
-%                 funcHandle = str2func(dsDesc.(dsName(kn)){3, kchar});
-%                 colnm = dsDesc.(dsName(kn)){1, kchar};
-%                 newRows.(colnm) = funcHandle(ll.sigInfo, ll.lblSet, dsDesc.(dsName(kn)){4, 1});
+%             for kchar = 1 : size(dsDesc.(dsDesc.Name(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
+%                 funcHandle = str2func(dsDesc.(dsDesc.Name(kn)){3, kchar});
+%                 colnm = dsDesc.(dsDesc.Name(kn)){1, kchar};
+%                 newRows.(colnm) = funcHandle(ll.sigInfo, ll.lblSet, dsDesc.(dsDesc.Name(kn)){4, 1});
 %             end
-%             ds.(dsName(kn)) = [ds.(dsName(kn)); newRows];
+%             ds.(dsDesc.Name(kn)) = [ds.(dsDesc.Name(kn)); newRows];
 %         end
 %     end
 % 
-% seizuresss = ds.(dsName(kn))
-% 
+% seizuresss = ds.(dsDesc.Name(kn))
+
 
     % Split the time into bins
-    binN = anStartN : stg.dpBinLenS/3600/24 : anEndN; % Borders of bins in datenum
-    numbin = length(binN) - 1; % Number of bins
+    binDt = anStartDt : seconds(stg.dpBinLenS) : anEndDt; % Borders of bins in datenum
+    numbin = length(binDt) - 1; % Number of bins
+
+
+    figure; plot(binDt, ones(size(binDt)), '*g')
+    crash
+
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
@@ -586,7 +594,7 @@ dpDesc.(dpDesc.Name(2)) =...
      "IED_Janca",                 "fast ripple";
      contamIed,                   contamIed};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    dp.tax = binN(2 : end);
+    dp.tax = binDt(2 : end);
     % Initialize the table in a field of the dp structure
     for kn = 1 : numel(dpDesc.Name)
         varNames = [dpDesc.(dpDesc.Name(kn)){1, :}];
@@ -636,7 +644,7 @@ dpDesc.(dpDesc.Name(2)) =...
 
 
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
-            % Initialize a new table which will be filled in and appended to the ds.(dsName(kn)).
+            % Initialize a new table which will be filled in and appended to the dp.(dpDesc.Name(kn)).
             numRows = numel(lblfSub); % Number of rows
             varNames = [dpDesc.(dpDesc.Name(kn)){1, :}];
             varTypes = [dpDesc.(dpDesc.Name(kn)){2, :}];
@@ -924,7 +932,7 @@ dpDesc.(dpDesc.Name(2)) =...
 % % % %     end
 % % % %     save([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
     
-    function [subjNm, anStartN, anEndN] = getSubjInfo(lblpn, snlpn, subjNmOrig)
+    function [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, snlpn, subjNmOrig)
         load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet') %#ok<NASGU>
         % There can be multiple subjects in one lbl3 file. Keep only channels containing the data on the subject.
         ss = strsplit(subjNmOrig, 'ET'); % ET stands for ear tag. Sometimes it is included in the subject name
@@ -945,8 +953,8 @@ dpDesc.(dpDesc.Name(2)) =...
         if ~all(sigTbl.Subject == subjNm)
             error('_jk Multiple subjects in signal file.')
         end
-        anStartN = datenum(min(sigInfo.SigStart)); % Analysis start determined by label files
-        anStartNSig = datenum(min(sigTbl.SigStart)); % Analysis start determined by signal files
+        anStartDt = min(sigInfo.SigStart); % Analysis start determined by label files
+        anStartDtSig = min(sigTbl.SigStart); % Analysis start determined by signal files
         lastLbl = load(lblpn{end});
         lastSigInfo = lastLbl.sigInfo(whichChannelsLbl, :);
         if any(sigInfo.Subject ~= lastSigInfo.Subject)
@@ -957,13 +965,13 @@ dpDesc.(dpDesc.Name(2)) =...
         if any(sigTbl.Subject ~= lastSigTbl.Subject)
             error('_jk Last signal file has diffent channels than the first file.')
         end
-        anEndN = datenum(max(lastSigInfo.SigEnd)); % Analysis end determined by signal files
-        anEndNSig = datenum(max(lastSigTbl.SigEnd)); % Analysis end determined by label files
-        if abs(anEndN - anEndNSig)*3600*24 > 1 || abs(anStartN - anStartNSig)*3600*24 > 1 % If they differ by more than a second
+        anEndDt = max(lastSigInfo.SigEnd); % Analysis end determined by signal files
+        anEndDtSig = max(lastSigTbl.SigEnd); % Analysis end determined by label files
+        if abs(anEndDt - anEndDtSig) > seconds(1) || abs(anStartDt - anStartDtSig) > seconds(1) % If they differ by more than a second
             disp('Analysis start difference:')
-            disp((anStartN - anStartNSig)*3600*24)
+            disp((anStartDt - anStartDtSig)*3600*24)
             disp('Analysis end difference:')
-            disp((anEndN - anEndNSig)*3600*24)
+            disp((anEndDt - anEndDtSig)*3600*24)
             error('_jk Label data and signal data have different time extent')
         end
     end

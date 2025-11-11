@@ -1,4 +1,4 @@
-function onsN = getOnsN(~, lblSet, clnm)
+function onsN = getOnsN(ll, clnm, invalidity, binLimDt)
     % The first argument could be sigInfo, but it is not used. It is needed for the consistency with other functions
     % lblSet ... table defined by OSEL system, contains onset, duration, etc.
     % clnm ..... class name - which label class from the lblSet should be used
