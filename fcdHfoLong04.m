@@ -528,16 +528,16 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
 % This will be in at the top in the control center
 dsName = "Seizure"; % Names of the phenomena to investigate
 dsDesc.(dsName(1)) =...
-    ["onsN",    "durN",    "pow";
+    {"onsN",    "durN",    "pow";
      "double",  "double",  "double";
      "getOnsN", "getDurS",  "getPow";
-     "Seizure", "Seizure", "Seizure"];
+     "Seizure", "Seizure", "Seizure"};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %     % Initialize the table in a field of the ds structure
 %     for kn = 1 : numel(dsName)
-%         varNames = dsDesc.(dsName(kn))(1, :);
-%         varTypes = dsDesc.(dsName(kn))(2, :);
+%         varNames = [dsDesc.(dsName(kn)){1, :}];
+%         varTypes = [dsDesc.(dsName(kn)){2, :}];
 %         ds.(dsName(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
 %     end
 % 
@@ -549,14 +549,14 @@ dsDesc.(dsName(1)) =...
 %         ll = load(lblpn{klbl});
 %         for kn = 1 : numel(dsName) % Over the names of the phenomena
 %             % Initialize a new table which will be filled in and appended to the ds.(dsName(kn)).
-%             numNewRows = sum(ll.lblSet.ClassName == dsDesc.(dsName(kn))(4, 1)); % Number of rows
-%             varNames = dsDesc.(dsName(kn))(1, :);
-%             varTypes = dsDesc.(dsName(kn))(2, :);
+%             numNewRows = sum(ll.lblSet.ClassName == dsDesc.(dsName(kn)){4, 1}); % Number of rows
+%             varNames = [dsDesc.(dsName(kn)){1, :}];
+%             varTypes = [dsDesc.(dsName(kn)){2, :}];
 %             newRows = table('Size', [numNewRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
 %             for kchar = 1 : size(dsDesc.(dsName(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
-%                 funcHandle = str2func(dsDesc.(dsName(kn))(3, kchar));
-%                 colnm = dsDesc.(dsName(kn))(1, kchar);
-%                 newRows.(colnm) = funcHandle(ll.sigInfo, ll.lblSet, dsDesc.(dsName(kn))(4, 1));
+%                 funcHandle = str2func(dsDesc.(dsName(kn)){3, kchar});
+%                 colnm = dsDesc.(dsName(kn)){1, kchar};
+%                 newRows.(colnm) = funcHandle(ll.sigInfo, ll.lblSet, dsDesc.(dsName(kn)){4, 1});
 %             end
 %             ds.(dsName(kn)) = [ds.(dsName(kn)); newRows];
 %         end
@@ -572,24 +572,25 @@ dsDesc.(dsName(1)) =...
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
 dpName = ["Valid"; "Count"]; % Types of tables that will be created (possibly, it could be all in one table).
+contamIed = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
 dpDesc.(dpName(1)) =...
-    {"ied",               "fr";
-     "double",            "double";
-     "getValidAmountCh",  "getValidAmountCh";
-     "",                  ""};
+    {"ied",               "fr"; % Name of the column
+     "double",            "double"; % Type of the column
+     "getValidAmountCh",  "getValidAmountCh"; % Function which will calculate the contents of the column
+     "IED_Janca",         "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
+     contamIed,           contamIed}; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
 dpDesc.(dpName(2)) =...
     {"ied",          "fr";
      "double",       "double";
      "getCountCh",   "getCountCh";
-     "IED_Janca",    "fast ripple"};
-assignin('base', 'dpDesc', dpDesc)
-crash
+     "IED_Janca",    "fast ripple";
+     contamIed,      contamIed};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dp.tax = binN(2 : end);
     % Initialize the table in a field of the dp structure
     for kn = 1 : numel(dpName)
-        varNames = dpDesc.(dpName(kn))(1, :);
-        varTypes = dpDesc.(dpName(kn))(2, :);
+        varNames = [dpDesc.(dpName(kn)){1, :}];
+        varTypes = [dpDesc.(dpName(kn)){2, :}];
         dp.(dpName(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
     end
 
@@ -637,8 +638,8 @@ crash
         for kn = 1 : numel(dpName) % Over the names of the phenomena
             % Initialize a new table which will be filled in and appended to the ds.(dsName(kn)).
             numRows = numel(lblfSub); % Number of rows
-            varNames = dpDesc.(dpName(kn))(1, :);
-            varTypes = dpDesc.(dpName(kn))(2, :);
+            varNames = [dpDesc.(dpName(kn)){1, :}];
+            varTypes = [dpDesc.(dpName(kn)){2, :}];
             binTables.(dpName(kn)) = table('Size', [numRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames); % Table of data from all files belonging to this time bin
         end
 
@@ -683,10 +684,10 @@ crash
             
             for kn = 1 : numel(dpName) % Over the names of the phenomena
                 for kchar = 1 : size(dpDesc.(dpName(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
-                    funcHandle = str2func(dpDesc.(dpName(kn))(3, kchar));
-                    colnm = dpDesc.(dpName(kn))(1, kchar); % Column name
+                    funcHandle = str2func(dpDesc.(dpName(kn)){3, kchar});
+                    colnm = dpDesc.(dpName(kn)){1, kchar}; % Column name
                     numch = height(ll.sigInfo);
-                    binTables.(dpName(kn)).(colnm)(klf, 1 : numch) = funcHandle(ll.sigInfo, ll.lblSet, dpDesc.(dpName(kn))(4, kchar));
+                    binTables.(dpName(kn)).(colnm)(klf, 1 : numch) = funcHandle(ll, ll, dpDesc.(dpName(kn))(4, kchar)); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
                 end
             end
             
