@@ -528,12 +528,14 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
 % This will be in at the top in the control center
 dsDesc.Name = "Seizure"; % Names of the phenomena to investigate
 contamSz = "";
+minSepSzS = 60;
 dsDesc.(dsDesc.Name(1)) =...
     {"onsDt",               "durDu",               "pow";
      "datetime",            "duration"             "double";
      "getData.dsGetOnsDt",  "getData.dsGetDurDu",  "getData.dsGetPow";
      "Seizure",             "Seizure",             "Seizure";
-     contamSz,              contamSz,              contamSz};
+     contamSz,              contamSz,              contamSz;
+     minSepSzS,             minSepSzS,             minSepSzS};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Initialize the table in a field of the ds structure
@@ -560,7 +562,7 @@ dsDesc.(dsDesc.Name(1)) =...
             for kchar = 1 : size(dsDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
                 funcHandle = str2func(dsDesc.(nm){3, kchar});
                 colnm = dsDesc.(nm){1, kchar};
-                newRows.(colnm) = funcHandle(ll, dsDesc.(nm){4, 1}, dsDesc.(nm){5, 1});
+                newRows.(colnm) = funcHandle(ll, dsDesc.(nm){4, kchar}, dsDesc.(nm){5, kchar}, dsDesc.(nm){6, kchar});
             end
             ds.(nm) = [ds.(nm); newRows];
         end
@@ -580,18 +582,21 @@ seizuresss = ds.(nm)
 % This will be in at the top in the control center
 dpDesc.Name = ["Valid"; "Count"]; % Types of tables that will be created (possibly, it could be all in one table).
 contamIed = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
+minSepIedS = 0.1;
 dpDesc.(dpDesc.Name(1)) =...
     {"ied",                         "fr"; % Name of the column
      "double",                      "double"; % Type of the column
      "getData.dpGetValidAmountCh",  "getData.dpGetValidAmountCh"; % Function which will calculate the contents of the column
      "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
-     contamIed,                     contamIed}; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
+     contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
+     minSepIedS,                    minSepIedS};
 dpDesc.(dpDesc.Name(2)) =...
     {"ied",                         "fr";
      "double",                      "double";
-     "getData.dpGetCountCh",          "getData.dpGetCountCh";
+     "getData.dpGetCountCh",        "getData.dpGetCountCh";
      "IED_Janca",                   "fast ripple";
-     contamIed,                     contamIed};
+     contamIed,                     contamIed;
+     minSepIedS,                    minSepIedS};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     dp.tax = binDt(2 : end);
     % Initialize the table in a field of the dp structure
@@ -600,9 +605,7 @@ dpDesc.(dpDesc.Name(2)) =...
         varTypes = [dpDesc.(dpDesc.Name(kn)){2, :}];
         dp.(dpDesc.Name(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
     end
-
-
-
+    
     % Loop over time bins
     fprintf(['\nBin No. ', num2str(0, '%06d'), '/', num2str(length(binN) - 1, '%06d'), '\n'])
     for kb = 1 : numbin % Loop over time blocks
@@ -694,7 +697,9 @@ dpDesc.(dpDesc.Name(2)) =...
                     funcHandle = str2func(dpDesc.(dpDesc.Name(kn)){3, kchar});
                     colnm = dpDesc.(dpDesc.Name(kn)){1, kchar}; % Column name
                     numch = height(ll.sigInfo);
-                    binTables.(dpDesc.Name(kn)).(colnm)(klf, 1 : numch) = funcHandle(ll, ll, dpDesc.(dpDesc.Name(kn))(4, kchar)); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                    binTables.(dpDesc.Name(kn)).(colnm)(klf, 1 : numch) =...
+                        funcHandle(ll, dpDesc.(dpDesc.Name(kn))(4, kchar)); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                        funcHandle(ll, dsDesc.(nm){4, kchar}, dsDesc.(nm){5, kchar}, dsDesc.(nm){6, kchar});
                 end
             end
             
