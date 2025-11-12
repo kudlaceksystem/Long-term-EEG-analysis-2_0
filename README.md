@@ -41,6 +41,11 @@ It loads label files sequentially and extracts data.
 The other part fills in dp.
 This one splits time into bins and loads the files that it needs.
 
+#### +getData folder
++getData folder contains functions called from within getData function. The function names should follow the following convention:
+- Functions for computations related to stem data should have the prefix ds
+- Functions for computations related to plot data should have the prefix dp
+
 ### Input
 Input to getData function includes: dsName, dsDescr.
 
