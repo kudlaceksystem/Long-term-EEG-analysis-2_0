@@ -3,6 +3,7 @@
 I started implementing it in fcdHfoLong04.m. We may rename the function afterwards.
 I am also splitting the whole program into multiple files, some functions are in +getData already.
 More folders are likely to appear. Now working on the getData function, rewriting it so that it is general.
+I am also changing from datenum to datetime since Matlab recommends it.
 
 ## getData
 The function getData creates three variables: subjectInfo, ds, dp.
