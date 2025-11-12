@@ -7,8 +7,8 @@ function [lblSetRelevantCh, lblSetInvalCh] = dpLblRelevantCh(ll, clnm, invalidit
     lblSetRelevantCh = ll.lblSet(ismember(ll.lblSet.ClassName, clnm) & ll.lblSet.Channel == ch, :); % lblSet containing only the required classes and channels
     lblSetInvalCh = ll.lblSet(ismember(ll.lblSet.ClassName, invalidity) & ll.lblSet.Channel == ch, :); % lblSet containing only the label classes which invalidate the signal for the intended analysis
     for kco = 1 : height(lblSetInvalCh)
-        lblSetRelevantCh(lblSetRelevantCh.End > lblSetInvalCh.Start(kco) & lblSetClCh.Start < lblSetInvalCh.End(kco), :) = [];
+        lblSetRelevantCh(lblSetRelevantCh.End > lblSetInvalCh.Start(kco) & lblSetRelevantCh.Start < lblSetInvalCh.End(kco), :) = [];
     end
-    lblSetRelevantCh = lblSetRelevantCh(lblSetRelevantCh.Start > binLimDt(1) & lblSetRelevantCh.Start < binLimDt(2));
-    lblSetInvalCh = lblSetInvalCh(lblSetInvalCh.Start > binLimDt(1) & lblSetInvalCh.Start < binLimDt(2));
+    lblSetRelevantCh = lblSetRelevantCh(lblSetRelevantCh.Start > binLimDt(1) & lblSetRelevantCh.Start < binLimDt(2), :);
+    lblSetInvalCh = lblSetInvalCh(lblSetInvalCh.Start > binLimDt(1) & lblSetInvalCh.Start < binLimDt(2), :);
 end

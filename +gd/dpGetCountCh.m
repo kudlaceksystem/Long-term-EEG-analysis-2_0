@@ -1,4 +1,4 @@
-function c = dpGetCountCh(ll, clnm, invalidity, binLimDt, minSepS)
+function c = dpGetCountCh(ll, clnm, invalidity, minSepS, binLimDt)
     % ll ........... contents of OSEL label file, i.e. sigInfo, lblDef, lblSet
     % clnm ......... class names - which label classes from the lblSet should be counted (often just one of them)
     % invalidity ... class names - which label classes from the lblSet should be used as a marker of invalid (contaminated signal)
@@ -11,8 +11,8 @@ function c = dpGetCountCh(ll, clnm, invalidity, binLimDt, minSepS)
     pointTF = ~(any(ll.lblDef.LabelType(ismember(ll.lblDef.ClassName, clnm)) == "roi"));
     c = NaN(1, numch);
     for kch = 1 : numch
-        lblSetRelevantCh = getData.dpLblRelevantCh(ll, clnm, invalidity, binLimDt);
-        lblSetRelevantCh = getData.dbLblMerge(lblSetRelevantCh, minSepS, pointTF);
+        lblSetRelevantCh = gd.dpLblRelevantCh(ll, clnm, invalidity, binLimDt, kch);
+        lblSetRelevantCh = gd.dbLblMerge(lblSetRelevantCh, minSepS, pointTF);
         c(1, kch) = height(lblSetRelevantCh);
     end
 end

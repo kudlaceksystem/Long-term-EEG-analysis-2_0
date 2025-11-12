@@ -492,8 +492,8 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     end
 
     % Get the file names
-    [snlpn, snlN] = getPnN(snlp); % Get path name and datenum
-    [lblpn, lblN] = getPnN(lblp); % Get path name and datenum
+    [snlpn, snlDt] = gd.dbGetPnDt(snlp); % Get path name and datenum
+    [lblpn, lblDt] = gd.dbGetPnDt(lblp); % Get path name and datenum
     [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, snlpn, subjNmOrig);
     
     
@@ -532,7 +532,7 @@ minSepSzS = 60;
 dsDesc.(dsDesc.Name(1)) =...
     {"onsDt",               "durDu",               "pow";
      "datetime",            "duration"             "double";
-     "getData.dsGetOnsDt",  "getData.dsGetDurDu",  "getData.dsGetPow";
+     "gd.dsGetOnsDt",       "gd.dsGetDurDu",       "gd.dsGetPow";
      "Seizure",             "Seizure",             "Seizure";
      contamSz,              contamSz,              contamSz;
      minSepSzS,             minSepSzS,             minSepSzS};
@@ -545,7 +545,7 @@ dsDesc.(dsDesc.Name(1)) =...
         varTypes = [dsDesc.(nm){2, :}];
         ds.(nm) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
     end
-    
+
     % Loop over label files
     fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
     for klbl = 1 : numel(lblpn)
@@ -554,7 +554,7 @@ dsDesc.(dsDesc.Name(1)) =...
         ll = load(lblpn{klbl});
         for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
             nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
-            % Initialize a new table which will be filled in and appended to the ds.(dpDesc.Name(kn)).
+            % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
             numNewRows = sum(ll.lblSet.ClassName == dsDesc.(nm){4, 1}); % Number of rows
             varNames = [dsDesc.(nm){1, :}];
             varTypes = [dsDesc.(nm){2, :}];
@@ -567,7 +567,7 @@ dsDesc.(dsDesc.Name(1)) =...
             ds.(nm) = [ds.(nm); newRows];
         end
     end
-    
+
 seizuresss = ds.(nm)
     
     % Split the time into bins
@@ -586,14 +586,14 @@ minSepIedS = 0.1;
 dpDesc.(dpDesc.Name(1)) =...
     {"ied",                         "fr"; % Name of the column
      "double",                      "double"; % Type of the column
-     "getData.dpGetValidAmountCh",  "getData.dpGetValidAmountCh"; % Function which will calculate the contents of the column
+     "gd.dpGetValidAmountCh",       "gd.dpGetValidAmountCh"; % Function which will calculate the contents of the column
      "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
      contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
      minSepIedS,                    minSepIedS};
 dpDesc.(dpDesc.Name(2)) =...
     {"ied",                         "fr";
      "double",                      "double";
-     "getData.dpGetCountCh",        "getData.dpGetCountCh";
+     "gd.dpGetCountCh",             "gd.dpGetCountCh";
      "IED_Janca",                   "fast ripple";
      contamIed,                     contamIed;
      minSepIedS,                    minSepIedS};
@@ -601,20 +601,21 @@ dpDesc.(dpDesc.Name(2)) =...
     dp.tax = binDt(2 : end);
     % Initialize the table in a field of the dp structure
     for kn = 1 : numel(dpDesc.Name)
-        varNames = [dpDesc.(dpDesc.Name(kn)){1, :}];
-        varTypes = [dpDesc.(dpDesc.Name(kn)){2, :}];
-        dp.(dpDesc.Name(kn)) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+        nm = dpDesc.Name(kn);
+        varNames = [dpDesc.(nm){1, :}];
+        varTypes = [dpDesc.(nm){2, :}];
+        dp.(nm) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
     end
     
     % Loop over time bins
-    fprintf(['\nBin No. ', num2str(0, '%06d'), '/', num2str(length(binN) - 1, '%06d'), '\n'])
+    fprintf(['\nBin No. ', num2str(0, '%06d'), '/', num2str(numbin, '%06d'), '\n'])
     for kb = 1 : numbin % Loop over time blocks
         % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
         fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
-        fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(length(binN) - 1, '%06d'), '\n'])
-        tol = 0.001/3600/24; % Tolerance in datenum
-        lblfSub = find(lblN > binN(kb) + tol, 1, 'first') - 1 : find(lblN <= binN(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
-        snlfSub = find(snlN > binN(kb) + tol, 1, 'first') - 1 : find(snlN <= binN(kb + 1), 1, 'last'); % Subscripts of signal file relevant for this bin
+        fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(numbin, '%06d'), '\n'])
+        tol = seconds(0.001); % Tolerance in seconds
+        lblfSub = find(lblDt > binDt(kb) + tol, 1, 'first') - 1 : find(lblDt <= binDt(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
+        snlfSub = find(snlDt > binDt(kb) + tol, 1, 'first') - 1 : find(snlDt <= binDt(kb + 1), 1, 'last'); % Subscripts of signal file relevant for this bin
         if any(size(lblfSub) ~= size(snlfSub))
             disp(size(lblfSub))
             disp(size(snlfSub))
@@ -647,17 +648,18 @@ dpDesc.(dpDesc.Name(2)) =...
 
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
             % Initialize a new table which will be filled in and appended to the dp.(dpDesc.Name(kn)).
+            nm = dpDesc.Name(kn);
             numRows = numel(lblfSub); % Number of rows
-            varNames = [dpDesc.(dpDesc.Name(kn)){1, :}];
-            varTypes = [dpDesc.(dpDesc.Name(kn)){2, :}];
-            binTables.(dpDesc.Name(kn)) = table('Size', [numRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames); % Table of data from all files belonging to this time bin
+            varNames = [dpDesc.(nm){1, :}];
+            varTypes = [dpDesc.(nm){2, :}];
+            binTables.(nm) = table('Size', [numRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames); % Table of data from all files belonging to this time bin
         end
 
 
 
         % Loop over files within this block
         for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
-            ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblSet');
+            ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblDef', 'lblSet');
             % % % load(snlpn{snlfSub(klf)}, 'sigTbl')
             % % % snlChToProcessSub = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match')); % Subscripts of signal channels to be processed (e.g. we may want do ignore accelerometer channels)
             % % % sigTbl = sigTbl(snlChToProcessSub, :);
@@ -681,25 +683,25 @@ dpDesc.(dpDesc.Name(2)) =...
             % % % sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
 
             % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
-            tol = 60/3600/24; % Gap of 60 seconds will be tolerated
-            if binN(kb) > datenum(max(ll.sigInfo.SigEnd)) + tol %#ok<*DATNM>
-                warning(['Data missing at ', datestr(binN(kb)), '.'])
+            tol = seconds(60); % Gap of 60 seconds will be tolerated
+            if binDt(kb) > max(ll.sigInfo.SigEnd) + tol
+                warning(['Data missing at ', datestr(binDt(kb)), '.'])
                 disp(lblfSub)
                 disp(snlfSub)
-                disp(['Block start: ', datestr(binN(kb))]); %#ok<*DATST>
-                disp(['sigInfo.SigEnd: ', string(min(ll.sigInfo.SigEnd))]);
-                disp(['Difference: ', num2str((datenum(min(ll.sigInfo.SigEnd)) - binN(kb))*3600*24), ' s'])
+                disp(['Block start: ', char(binDt(kb))]); %#ok<*DATST>
+                disp(['sigInfo.SigEnd: ', char(min(ll.sigInfo.SigEnd))]);
+                disp(['Difference: ', char(min(ll.sigInfo.SigEnd) - binDt(kb))])
                 continue
             end
             
             for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
-                for kchar = 1 : size(dpDesc.(dpDesc.Name(kn)), 2) % Fill in new rows for each characteristic of the phenomenon
-                    funcHandle = str2func(dpDesc.(dpDesc.Name(kn)){3, kchar});
-                    colnm = dpDesc.(dpDesc.Name(kn)){1, kchar}; % Column name
+                nm = dpDesc.Name(kn);
+                for kchar = 1 : size(dpDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
+                    funcHandle = str2func(dpDesc.(nm){3, kchar});
+                    colnm = dpDesc.(nm){1, kchar}; % Column name
                     numch = height(ll.sigInfo);
-                    binTables.(dpDesc.Name(kn)).(colnm)(klf, 1 : numch) =...
-                        funcHandle(ll, dpDesc.(dpDesc.Name(kn))(4, kchar)); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
-                        funcHandle(ll, dsDesc.(nm){4, kchar}, dsDesc.(nm){5, kchar}, dsDesc.(nm){6, kchar});
+                    binTables.(nm).(colnm)(klf, 1 : numch) =...
+                        funcHandle(ll, dpDesc.(nm){4, kchar}, dpDesc.(nm){5, kchar}, dpDesc.(nm){6, kchar}, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
                 end
             end
             
@@ -814,7 +816,7 @@ dpDesc.(dpDesc.Name(2)) =...
             % % % % end
         end % Over files within the block
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
-            dp.(dpDesc.Name(kn)) = [dp.(dpDesc.Name(kn)); mean(binTables.(dpDesc.Name(kn)))];
+            dp.(nm) = [dp.(nm); mean(binTables.(nm))];
         end
     end
 % % % %         % %%%%%%%%%%%%%%%%%%%%% %
@@ -979,13 +981,13 @@ dpDesc.(dpDesc.Name(2)) =...
             error('_jk Label data and signal data have different time extent')
         end
     end
-    function [pn, N] = getPnN(p)
-        % Get file path, name, start date in datenum
-        d = dir([p, '\*.mat']);
-        n = {d.name}';
-        pn = fullfile(p, n);
-        N = cellfun(@(x) datenum(regexp(x, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match'), 'yymmdd_HHMMSS'), n, 'UniformOutput', true);
-    end
+    % % % % % % % % % % % % % % % % % function [pn, N] = getPnN(p)
+    % % % % % % % % % % % % % % % % %     % Get file path, name, start date in datenum
+    % % % % % % % % % % % % % % % % %     d = dir([p, '\*.mat']);
+    % % % % % % % % % % % % % % % % %     n = {d.name}';
+    % % % % % % % % % % % % % % % % %     pn = fullfile(p, n);
+    % % % % % % % % % % % % % % % % %     N = cellfun(@(x) datenum(regexp(x, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match'), 'yymmdd_HHMMSS'), n, 'UniformOutput', true);
+    % % % % % % % % % % % % % % % % % end
     function [tMrk, sigStartN, sigEndN, mrkOnsetN, mrkOffsetN] = uniteMrk(lblSetMrk, sigInfo, minDistToJoinS)
         % tMrk is a logical array along a time axis. It is sampled at stg.fsLbl Hz.
         lblSetMrk = sortrows(lblSetMrk, "Start");
@@ -8139,6 +8141,7 @@ function setFormat
     set(0, 'DefaultAxesFontName', 'Arial');
     set(0, 'DefaultUicontrolFontName', 'Arial');
     format compact
+    datetime.setDefaultFormats('default', 'yyyy-MM-dd HH:mm:ss')
 end
 
 % Helper functions
