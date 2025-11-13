@@ -1,3 +1,5 @@
+return
+
 % This script takes label files and optionally signal files and creates long-term profiles of labeled patterns and transients
 analyzeIndividualSubjects = 1;
 analyzePopulation = 1;

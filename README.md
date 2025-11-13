@@ -45,6 +45,8 @@ This one splits time into bins and loads the files that it needs.
 +getData folder contains functions called from within getData function. The function names should follow the following convention:
 - Functions for computations related to stem data should have the prefix ds
 - Functions for computations related to plot data should have the prefix dp
+- Functions for computations on file basis should have the prefix f
+- Functions for computations on bin basis should have the prefix b
 - Functions for computations related to both should have the prefix db (b stands for both)
 - Functions directly called by getData function should be named ..Get...
 - Functions for manipulation of labels not directly called by getData should be named ..Lbl...

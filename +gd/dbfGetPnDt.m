@@ -1,4 +1,4 @@
-function [pn, Dt, N] = dbGetPnDt(p)
+function [pn, Dt, N] = dbfGetPnDt(p)
     % Get file path, name, start date in datetime and datenum
     d = dir([p, '\*.mat']);
     n = {d.name}';

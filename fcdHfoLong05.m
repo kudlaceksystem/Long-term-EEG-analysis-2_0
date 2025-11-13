@@ -528,8 +528,8 @@ dpDesc.(dpDesc.Name(2)) =...
     end
     
     % Get the file names
-    [snlpn, snlDt] = gd.dbGetPnDt(snlp); % Get path name and datenum
-    [lblpn, lblDt] = gd.dbGetPnDt(lblp); % Get path name and datenum
+    [snlpn, snlDt] = gd.dbfGetPnDt(snlp); % Get path name and datenum
+    [lblpn, lblDt] = gd.dbfGetPnDt(lblp); % Get path name and datenum
     [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, snlpn, subjNmOrig);
     
     %% Data to stem
@@ -566,9 +566,21 @@ dpDesc.(dpDesc.Name(2)) =...
     %% Data to plot
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dpDesc.Name = ["Valid"; "Count"; "Rate"]; % Types of tables that will be created (possibly, it could be all in one table).
-contamIed = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
+dpDesc.Name = ["Ied"; "Fr"]; % Types of tables that will be created (possibly, it could be all in one table).
+invalidity = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
 minSepIedS = 0.1;
+dpDesc.(dpDesc.Name(1)) =...
+    {"Valid",                       "Count",                       "Rate"; % Name of the column
+     "double",                      "double",                      "double"; % Type of the column
+     "file",                        "file",                        "bin"; % Calculated per file or per bin
+     "gd.dpGetValidAmountCh",       "gd.dpGetCountCh"; % Function which will calculate the contents of the column
+     "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
+     contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
+     minSepIedS,                    minSepIedS}; % Minimum separation of events otherwise merged
+
+% dpDesc.Name = ["Valid"; "Count"; "Rate"]; % Types of tables that will be created (possibly, it could be all in one table).
+% invalidity = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
+% minSepIedS = 0.1;
 dpDesc.(dpDesc.Name(1)) =...
     {"ied",                         "fr"; % Name of the column
      "double",                      "double"; % Type of the column
