@@ -497,13 +497,13 @@ function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj,
     [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, snlpn, subjNmOrig);
     
     
-    % Initialize seizure-related variables
-    ds = struct();
-    % % % % % % % % szOnsN = [];
-    % % % % % % % % szDurN = [];
-    % % % % % % % % szRac = [];
-    % % % % % % % % szPow = [];
-    % % % % % % % % postIctPow = [];
+    % % % % % % % % % % % % % % % % % % % % % % Initialize seizure-related variables
+    % % % % % % % % % % % % % % % % % % % % % ds = struct();
+    % % % % % % % % % % % % % % % % % % % % % % % % % % % % % szOnsN = [];
+    % % % % % % % % % % % % % % % % % % % % % % % % % % % % % szDurN = [];
+    % % % % % % % % % % % % % % % % % % % % % % % % % % % % % szRac = [];
+    % % % % % % % % % % % % % % % % % % % % % % % % % % % % % szPow = [];
+    % % % % % % % % % % % % % % % % % % % % % % % % % % % % % postIctPow = [];
     
     
     % <LATER>
