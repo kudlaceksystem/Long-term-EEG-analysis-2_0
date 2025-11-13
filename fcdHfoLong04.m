@@ -538,43 +538,43 @@ dsDesc.(dsDesc.Name(1)) =...
      minSepSzS,             minSepSzS,             minSepSzS};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Initialize the table in a field of the ds structure
-    for kn = 1 : numel(dsDesc.Name)
-        nm = dsDesc.Name(kn); % Name of the phenomenon we are now initializing for
-        varNames = [dsDesc.(nm){1, :}];
-        varTypes = [dsDesc.(nm){2, :}];
-        ds.(nm) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
-    end
-
-    % Loop over label files
-    fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
-    for klbl = 1 : numel(lblpn)
-        fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
-        fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
-        ll = load(lblpn{klbl});
-        for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
-            nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
-            % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
-            numNewRows = sum(ll.lblSet.ClassName == dsDesc.(nm){4, 1}); % Number of rows
-            varNames = [dsDesc.(nm){1, :}];
-            varTypes = [dsDesc.(nm){2, :}];
-            newRows = table('Size', [numNewRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
-            for kchar = 1 : size(dsDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
-                funcHandle = str2func(dsDesc.(nm){3, kchar});
-                colnm = dsDesc.(nm){1, kchar};
-                newRows.(colnm) = funcHandle(ll, dsDesc.(nm){4, kchar}, dsDesc.(nm){5, kchar}, dsDesc.(nm){6, kchar});
-            end
-            ds.(nm) = [ds.(nm); newRows];
-        end
-    end
-
-seizuresss = ds.(nm)
+%     % Initialize the table in a field of the ds structure
+%     for kn = 1 : numel(dsDesc.Name)
+%         nm = dsDesc.Name(kn); % Name of the phenomenon we are now initializing for
+%         varNames = [dsDesc.(nm){1, :}];
+%         varTypes = [dsDesc.(nm){2, :}];
+%         ds.(nm) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+%     end
+% 
+%     % Loop over label files
+%     fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+%     for klbl = 1 : numel(lblpn)
+%         fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+%         fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+%         ll = load(lblpn{klbl});
+%         for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
+%             nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
+%             % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
+%             numNewRows = sum(ll.lblSet.ClassName == dsDesc.(nm){4, 1}); % Number of rows
+%             varNames = [dsDesc.(nm){1, :}];
+%             varTypes = [dsDesc.(nm){2, :}];
+%             newRows = table('Size', [numNewRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+%             for kchar = 1 : size(dsDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
+%                 funcHandle = str2func(dsDesc.(nm){3, kchar});
+%                 colnm = dsDesc.(nm){1, kchar};
+%                 newRows.(colnm) = funcHandle(ll, dsDesc.(nm){4, kchar}, dsDesc.(nm){5, kchar}, dsDesc.(nm){6, kchar});
+%             end
+%             ds.(nm) = [ds.(nm); newRows];
+%         end
+%     end
+% 
+% seizuresss = ds.(nm)
     
     % Split the time into bins
     binDt = anStartDt : seconds(stg.dpBinLenS) : anEndDt; % Borders of bins in datenum
     numbin = length(binDt) - 1; % Number of bins
     
-    figure; plot(binDt, ones(size(binDt)), '*g')
+    % % % % % % % % % % % % % % % % figure; plot(binDt, ones(size(binDt)), '*g')
 
 
 
@@ -653,9 +653,9 @@ dpDesc.(dpDesc.Name(2)) =...
             varNames = [dpDesc.(nm){1, :}];
             varTypes = [dpDesc.(nm){2, :}];
             binTables.(nm) = table('Size', [numRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames); % Table of data from all files belonging to this time bin
+            binTables.(nm)(1, :) = [];
         end
-
-
+binT_ = binTables.(nm)
 
         % Loop over files within this block
         for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
@@ -817,7 +817,15 @@ dpDesc.(dpDesc.Name(2)) =...
         end % Over files within the block
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
             nm = dpDesc.Name(kn);
-            dp.(nm) = [dp.(nm); mean(binTables.(nm))];
+            if ~isempty(binTables.(nm)) % If it is not empty, just apply mean over the first dimension (columns).
+                binTables.(nm) = mean(binTables.(nm), 1);
+            else % If it is empty, the function mean would create one NaN in each cell of the table, which would be inconsistent with the dimensions of other cells if we process more than one channel
+                for kcol = 1 : width(dp.(nm))
+                    nn{1, kcol} = NaN(1, numel(dp.(nm){1, kcol})); %#ok<AGROW> % Create a cell array of NaNs to plug it in the binTables.(nm)
+                end
+                binTables.(nm) = nn; % Plug in the created NaN cells into the table. The NaNs have to be there because the row exists in the time axis dp.tax
+            end
+            dp.(nm) = [dp.(nm); binTables.(nm)]; % Concatenate
         end
     end
 % % % %         % %%%%%%%%%%%%%%%%%%%%% %
