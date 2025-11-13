@@ -566,23 +566,33 @@ dpDesc.(dpDesc.Name(2)) =...
     %% Data to plot
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dpDesc.Name = ["Valid"; "Count"]; % Types of tables that will be created (possibly, it could be all in one table).
+dpDesc.Name = ["Valid"; "Count"; "Rate"]; % Types of tables that will be created (possibly, it could be all in one table).
 contamIed = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
 minSepIedS = 0.1;
 dpDesc.(dpDesc.Name(1)) =...
     {"ied",                         "fr"; % Name of the column
      "double",                      "double"; % Type of the column
+     "file",                        "file"; % Calculated per file or per bin
      "gd.dpGetValidAmountCh",       "gd.dpGetValidAmountCh"; % Function which will calculate the contents of the column
      "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
      contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
-     minSepIedS,                    minSepIedS};
+     minSepIedS,                    minSepIedS}; % Minimum separation of events otherwise merged
 dpDesc.(dpDesc.Name(2)) =...
     {"ied",                         "fr";
      "double",                      "double";
+     "file",                        "file"; % Calculated per file or per bin
      "gd.dpGetCountCh",             "gd.dpGetCountCh";
      "IED_Janca",                   "fast ripple";
      contamIed,                     contamIed;
      minSepIedS,                    minSepIedS};
+dpDesc.(dpDesc.Name(3)) =...
+    {"ied",                         "fr";
+     "double",                      "double";
+     "bin",                         "bin"; % Calculated per file or per bin
+     "gd.dpGetRateCh",              "gd.dpGetRateCh";
+     "IED_Janca",                   "fast ripple";
+     [],                            [];
+     [],                            []};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Split the time into bins
@@ -668,6 +678,7 @@ dpDesc.(dpDesc.Name(2)) =...
             end
             for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
                 nm = dpDesc.Name(kn);
+                % if dpDecs
                 for kchar = 1 : size(dpDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
                     funcHandle = str2func(dpDesc.(nm){3, kchar});
                     colnm = dpDesc.(nm){1, kchar}; % Column name
