@@ -816,6 +816,7 @@ dpDesc.(dpDesc.Name(2)) =...
             % % % % end
         end % Over files within the block
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
+            nm = dpDesc.Name(kn);
             dp.(nm) = [dp.(nm); mean(binTables.(nm))];
         end
     end
