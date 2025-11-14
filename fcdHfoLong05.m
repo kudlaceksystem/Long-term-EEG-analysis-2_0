@@ -11,18 +11,12 @@ end
 
 %% ANALYSIS
 % TODO001 Different time extents of label and signal files. Needs to be fixed in the data not in this script.
+% TODO002 If file is already loaded do not load it again
 % In siCharCl fix the y-axis labels
-% Add rmse and pearson of simulated data to individual plots (Supplementary Figures)
-% How many seizures are there in the animal-wise pictures? For peri-seizure pictures are rendered just add them to the Corel.
-% How many animals are there in the population pictures?
 % Add before-, during- and after-cluster raw IED rate and possibly also sz chars
 % Add violin plots of baselines after the exponentials
-% Significance in individual subjects
-% Add p-values of correlations in individual subjects
-% Evaluate the trends as percentage change?
-% Circadian AllPop IED rate: Make the black line continuous without the gap at midnight
-% How many clusters in total? And how many mice had no clusters?
-% Fix curve fitting by interpolating the fitted data to higher fs so that the fitted curve does not depart from the data between the recorded data points
+% P-values and significance in individual subjects
+% Evaluate the trends as fold change?
 % Special functions for fitting Poisson or power-law distribution to the signal characteristics
 % Circadian distribution of lead seizures or cluster onsets and offsets
 % Tukey
@@ -32,18 +26,14 @@ end
 % How many droupouts, how long, how long in total?
 
 %% PLOT FORMATTING
-% Fitting - if days long, put ticks at whole days, not hours, not 0.75 days
-% Change fitted lines to red according to figure 2 ???
 % ShowStat simulated similarity
 
 %% CODE CLEANLINESS
 % Naming of the phase and radius or angle and modulus or theta and R
 % Input into function should never be fields of a structure. Input the whole structure and choose fields within the function.
-% Call sample sample and not population?
+% Call sample "sample" and not "population"?
 
 %% DATA
-% Check the seizures
-% Add animals
 
 %% ANALYSIS IDEAS
 % Forecasting
@@ -172,7 +162,7 @@ stg.maxWithinClusIsiN = 2; % In days
 stg.parNm = {'isi', 'dur', 'rac', 'pow', 'pos'}; % Names of parameters to correlate with intracluster time
 
 % Signal characteristics
-stg.dpBinLenS = 4*3600;
+stg.dpBinLenS = 6*3600;
 
 stg.leadSzTimeS = 4*3600; % Duration of the period before the seizure that must be seizure free
 stg.fitSzDurS = 2*3600; % Duration of the fitted region before or after the seizure in seconds
@@ -466,41 +456,81 @@ function dobTable = getSubjectList(dobpn)
     warning(origWarningState); 
     dobTable = table(Subject, Birth, Sex);
 end
-function [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj, subjNmOrig)
+function [subjInfo, ds, dp] = getData(lblp, snlp, dobTable, ksubj, subjNmOrig)
     % dsDesc ........ data to stem description
     % dpDesc ........ data to plot description
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dsDesc.Name = "Seizure"; % Names of the phenomena to investigate
-contamSz = "";
+dsDesc.Name = "Seizure"; % Types of tables that will be created (possibly, it could be all in one table).
+exLblAn = [];
 minSepSzS = 60;
-dsDesc.(dsDesc.Name(1)) =...
-    {"onsDt",               "durDu",               "pow";
-     "datetime",            "duration"             "double";
-     "gd.dsGetOnsDt",       "gd.dsGetDurDu",       "gd.dsGetPow";
-     "Seizure",             "Seizure",             "Seizure";
-     contamSz,              contamSz,              contamSz;
-     minSepSzS,             minSepSzS,             minSepSzS};
+d(1).VarName    = "OnsDt";
+d(1).VarType    = "datetime";
+d(1).CalcFcn    = "gd.dsfGetOnsDt";
+d(1).SrcData    = "Lbl";
+d(1).MainLbl    = ["Seizure", "seizure", "SEIZURE", "S", "s"];
+d(1).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(1).MinSepS    = minSepSzS;
+d(1).PlotTitle  = "Seizure occurrence";
+d(1).YAxisLabel = "";
+d(2).VarName    = "DurDu";
+d(2).VarType    = "duration";
+d(2).CalcFcn    = "gd.dsfGetDurDu";
+d(2).SrcData    = "Lbl";
+d(2).MainLbl    = ["Seizure", "seizure", "SEIZURE", "S", "s"];
+d(2).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(2).MinSepS    = minSepSzS;
+d(2).PlotTitle  = "Seizure duration";
+d(2).YAxisLabel = "Sz dur (s)";
+d(3).VarName    = "Pow";
+d(3).VarType    = "double";
+d(3).CalcFcn    = "gd.dsfGetPow";
+d(3).SrcData    = "Lbl";
+d(3).MainLbl    = ["Seizure", "seizure", "SEIZURE", "S", "s"];
+d(3).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(3).MinSepS    = minSepSzS;
+d(3).PlotTitle  = "Seizure signal power";
+d(3).YAxisLabel = "Sz power (a.u.)";
+dsDesc.(dsDesc.Name(1)) = d;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% This will be in at the top in the control center
-dpDesc.Name = ["Valid"; "Count"]; % Types of tables that will be created (possibly, it could be all in one table).
-contamIed = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
+dpDesc.Name = "Ied"; % Types of tables that will be created (possibly, it could be all in one table).
+exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
+exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
 minSepIedS = 0.1;
-dpDesc.(dpDesc.Name(1)) =...
-    {"ied",                         "fr"; % Name of the column
-     "double",                      "double"; % Type of the column
-     "gd.dpGetValidAmountCh",       "gd.dpGetValidAmountCh"; % Function which will calculate the contents of the column
-     "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
-     contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
-     minSepIedS,                    minSepIedS};
-dpDesc.(dpDesc.Name(2)) =...
-    {"ied",                         "fr";
-     "double",                      "double";
-     "gd.dpGetCountCh",             "gd.dpGetCountCh";
-     "IED_Janca",                   "fast ripple";
-     contamIed,                     contamIed;
-     minSepIedS,                    minSepIedS};
+d(1).VarName    = "ValidS";
+d(1).VarType    = "double";
+d(1).CalcLvl    = "file";
+d(1).CalcFcn    = "gd.dpfGetValidAmountCh";
+d(1).SrcData    = "Lbl";
+d(1).MainLbl    = "IED_Janca";
+d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(1).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(1).MinSepS    = minSepIedS;
+d(1).PlotTitle  = "Total duration of usable rec";
+d(1).YAxisLabel = "Usable rec (s)";
+d(2).VarName    = "Count";
+d(2).VarType    = "double";
+d(2).CalcLvl    = "file";
+d(2).CalcFcn    = "gd.dpfGetCountCh";
+d(2).SrcData    = "Lbl";
+d(2).MainLbl    = "IED_Janca";
+d(2).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(2).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(2).MinSepS    = minSepIedS;
+d(2).PlotTitle  = "IED count";
+d(2).YAxisLabel = "IED count";
+d(3).VarName    = "RatePh";
+d(3).VarType    = "double";
+d(3).CalcLvl    = "bin";
+d(3).CalcFcn    = "gd.dpbGetRatePhCh";
+d(3).SrcData    = "Lbl";
+d(3).MainLbl    = "IED_Janca";
+d(3).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(3).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(3).MinSepS    = minSepIedS;
+d(3).PlotTitle  = "IED rate";
+d(3).YAxisLabel = "IEDs/hour";
+dpDesc.(dpDesc.Name(1)) = d;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Get sz data and signal characteristics including IED rate, amount of EMG artifacts and critical slowing markers.
@@ -526,38 +556,56 @@ dpDesc.(dpDesc.Name(2)) =...
         subjInfo.sex = dobTable{ksubj, 3};
         return
     end
-    
+    for knm = 1 : length(dsDesc.Name)
+        lblOnlyTF(knm) = all([dsDesc.(dsDesc.Name(knm)).SrcData] == "Lbl");
+    end
+    dsLblOnlyTF = all(lblOnlyTF);
+    for knm = 1 : length(dpDesc.Name)
+        lblOnlyTF(knm) = all([dpDesc.(dpDesc.Name(knm)).SrcData] == "Lbl");
+    end
+    dpLblOnlyTF = all(lblOnlyTF);
+    lblOnlyTF = dsLblOnlyTF && dpLblOnlyTF;
+
     % Get the file names
-    [snlpn, snlDt] = gd.dbfGetPnDt(snlp); % Get path name and datenum
     [lblpn, lblDt] = gd.dbfGetPnDt(lblp); % Get path name and datenum
-    [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, snlpn, subjNmOrig);
+    if ~lblOnlyTF
+        [snlpn, snlDt] = gd.dbfGetPnDt(snlp); % Get path name and datenum
+    end
+    [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, subjNmOrig);
     
-    % %% Data to stem
-    % % Initialize the table in a field of the ds structure
-    % for kn = 1 : numel(dsDesc.Name)
-    %     nm = dsDesc.Name(kn); % Name of the phenomenon we are now initializing for
-    %     varNames = [dsDesc.(nm){1, :}];
-    %     varTypes = [dsDesc.(nm){2, :}];
-    %     ds.(nm) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
-    % end
-    % 
+    %% Data to stem
+    % Initialize the table in a field of the ds structure
+    for kn = 1 : numel(dsDesc.Name)
+        nm = dsDesc.Name(kn); % Name of the phenomenon to analyze
+        dd = dsDesc.(nm); % Data description (only for this phenomenon)
+        ds.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
+    end
+
     % % Loop over label files
     % fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
     % for klbl = 1 : numel(lblpn)
-    %     fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+    %     % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
     %     fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
     %     ll = load(lblpn{klbl});
     %     for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
     %         nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
+    %         dd = dsDesc.(nm); % Data description (only for this phenomenon)
     %         % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
-    %         numNewRows = sum(ll.lblSet.ClassName == dsDesc.(nm){4, 1}); % Number of rows
-    %         varNames = [dsDesc.(nm){1, :}];
-    %         varTypes = [dsDesc.(nm){2, :}];
-    %         newRows = table('Size', [numNewRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+    %         numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows
+    %         newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
     %         for kchar = 1 : size(dsDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
-    %             funcHandle = str2func(dsDesc.(nm){3, kchar});
-    %             colnm = dsDesc.(nm){1, kchar};
-    %             newRows.(colnm) = funcHandle(ll, dsDesc.(nm){4, kchar}, dsDesc.(nm){5, kchar}, dsDesc.(nm){6, kchar});
+    %             d = dd(kchar);
+    %             funcHandle = str2func(d.CalcFcn);
+    %             colnm = d.VarName; % Column name
+    %             switch d.SrcData
+    %                 case "Lbl"
+    %                     newRows.(colnm) = funcHandle(ll, d);
+    %                 case "Snl"
+    %                     newRows.(colnm) = funcHandle(ls, d);
+    %                 case "LblSnl"
+    %                     newRows.(colnm) = funcHandle(ll, ls, d);
+    %             end
+    %             newRows.(colnm) = funcHandle(ll, d);
     %         end
     %         ds.(nm) = [ds.(nm); newRows];
     %     end
@@ -566,71 +614,15 @@ dpDesc.(dpDesc.Name(2)) =...
     %% Data to plot
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dpDesc.Name = "Ied"; % Types of tables that will be created (possibly, it could be all in one table).
-exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
-exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
-minSepIedS = 0.1;
-% % % % % % % % % % dpDesc.(dpDesc.Name(1)) =...
-% % % % % % % % % %     {"ValidS",                      "Count",                       "Rate"; % Name of the column
-% % % % % % % % % %      "double",                      "double",                      "double"; % Type of the column
-% % % % % % % % % %      "file",                        "file",                        "bin"; % Calculated per file or per bin
-% % % % % % % % % %      "gd.dpfGetValidAmountCh",      "gd.dpfGetCountCh",            "gd.dpbGetRateCh"; % Function which will calculate the contents of the column
-% % % % % % % % % %      "IED_Janca",                   "IED_Janca",                   "IED_Janca"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
-% % % % % % % % % %      contamIed,                     contamIed,                     []; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
-% % % % % % % % % %      minSepIedS,                    minSepIedS,                    []}; % Minimum separation of events otherwise merged
-d(1).VarName    = "ValidS";
-d(1).VarType    = "double";
-d(1).CalcLvl    = "file";
-d(1).CalcFcn    = "gd.dpfGetValidAmountCh";
-d(1).MainLbl    = "IED_Janca";
-d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
-d(1).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
-d(1).MinSepS    = minSepIedS;
-d(2).VarName    = "Count";
-d(2).VarType    = "double";
-d(2).CalcLvl    = "file";
-d(2).CalcFcn    = "gd.dpfGetCountCh";
-d(2).MainLbl    = "IED_Janca";
-d(2).ExLblCh    = exLblCh; % Labels to exclude in individual channels
-d(2).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
-d(2).MinSepS    = minSepIedS;
-d(3).VarName    = "RatePh";
-d(3).VarType    = "double";
-d(3).CalcLvl    = "bin";
-d(3).CalcFcn    = "gd.dpbGetRatePhCh";
-d(3).MainLbl    = "IED_Janca";
-d(3).ExLblCh    = exLblCh; % Labels to exclude in individual channels
-d(3).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
-d(3).MinSepS    = minSepIedS;
-dpDesc.(dpDesc.Name(1)) = d;
 
-% % % % % % % dpDesc.Name = ["Valid"; "Count"; "Rate"]; % Types of tables that will be created (possibly, it could be all in one table).
-% % % % % % % invalidity = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
-% % % % % % % minSepIedS = 0.1;
-% % % % % % dpDesc.(dpDesc.Name(1)) =...
-% % % % % %     {"ied",                         "fr"; % Name of the column
-% % % % % %      "double",                      "double"; % Type of the column
-% % % % % %      "file",                        "file"; % Calculated per file or per bin
-% % % % % %      "gd.dpGetValidAmountCh",       "gd.dpGetValidAmountCh"; % Function which will calculate the contents of the column
-% % % % % %      "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
-% % % % % %      contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
-% % % % % %      minSepIedS,                    minSepIedS}; % Minimum separation of events otherwise merged
-% % % % % % dpDesc.(dpDesc.Name(2)) =...
-% % % % % %     {"ied",                         "fr";
-% % % % % %      "double",                      "double";
-% % % % % %      "file",                        "file"; % Calculated per file or per bin
-% % % % % %      "gd.dpGetCountCh",             "gd.dpGetCountCh";
-% % % % % %      "IED_Janca",                   "fast ripple";
-% % % % % %      contamIed,                     contamIed;
-% % % % % %      minSepIedS,                    minSepIedS};
-% % % % % % dpDesc.(dpDesc.Name(3)) =...
-% % % % % %     {"ied",                         "fr";
-% % % % % %      "double",                      "double";
-% % % % % %      "bin",                         "bin"; % Calculated per file or per bin
-% % % % % %      "gd.dpGetRateCh",              "gd.dpGetRateCh";
-% % % % % %      "IED_Janca",                   "fast ripple";
-% % % % % %      [],                            [];
-% % % % % %      [],                            []};
+
+    for knm = 1 : length(dpDesc.Name)
+        lblOnlyTF(knm) = all([dpDesc.(dpDesc.Name(knm)).SrcData] == "Lbl");
+    end
+    lblOnlyTF = all(lblOnlyTF);
+
+
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Split the time into bins
@@ -642,31 +634,32 @@ dpDesc.(dpDesc.Name(1)) = d;
     for kn = 1 : numel(dpDesc.Name)
         nm = dpDesc.Name(kn); % Name of the phenomenon to analyze
         dd = dpDesc.(nm); % Data description (only for this phenomenon)
-        dp.(nm) = table('Size', [0 length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
+        dp.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
     end
     
     % Loop over time bins
     fprintf(['\nBin No. ', num2str(0, '%06d'), '/', num2str(numbin, '%06d'), '\n'])
+    loadedFilepn = "";
     for kb = 1 : numbin % Loop over time blocks
         % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
         fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(numbin, '%06d'), '\n'])
         tol = seconds(0.001); % Tolerance in seconds
         lblfSub = find(lblDt > binDt(kb) + tol, 1, 'first') - 1 : find(lblDt <= binDt(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
-        % % % snlfSub = find(snlDt > binDt(kb) + tol, 1, 'first') - 1 : find(snlDt <= binDt(kb + 1), 1, 'last'); % Subscripts of signal file relevant for this bin
-        % % % 
-        % % % % Check if we have the same label files and signal files
-        % % % if any(size(lblfSub) ~= size(snlfSub))
-        % % %     disp(size(lblfSub))
-        % % %     disp(size(snlfSub))
-        % % %     warning('Label file and signal file subscripts have different size')
-        % % %     pause
-        % % % elseif any(lblfSub ~= snlfSub)
-        % % %     disp(lblfSub)
-        % % %     disp(snlfSub)
-        % % %     warning('Label file and signal file subscripts are not equal')
-        % % %     pause
-        % % % end
-        % % % 
+        if ~dpLblOnlyTF
+            snlfSub = find(snlDt > binDt(kb) + tol, 1, 'first') - 1 : find(snlDt <= binDt(kb + 1), 1, 'last'); % Subscripts of signal file relevant for this bin
+            % Check if we have the same label files and signal files
+            if any(size(lblfSub) ~= size(snlfSub))
+                disp(size(lblfSub))
+                disp(size(snlfSub))
+                warning('Label file and signal file subscripts have different size')
+                pause
+            elseif any(lblfSub ~= snlfSub)
+                disp(lblfSub)
+                disp(snlfSub)
+                warning('Label file and signal file subscripts are not equal')
+                pause
+            end
+        end
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
             % Initialize a new table which will be filled in and appended to the dp.(dpDesc.Name(kn)).
             nm = dpDesc.Name(kn);
@@ -677,40 +670,45 @@ dpDesc.(dpDesc.Name(1)) = d;
 
         % Loop over files within this block
         for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
-            ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblDef', 'lblSet');
-            % % % load(snlpn{snlfSub(klf)}, 'sigTbl')
-            % % % snlChToProcessSub = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match')); % Subscripts of signal channels to be processed (e.g. we may want do ignore accelerometer channels)
-            % % % sigTbl = sigTbl(snlChToProcessSub, :);
-            % % % sigInfo = sigInfo(snlChToProcessSub, :);
-            % % % if ~all(sigInfo.Subject == subjNm)
-            % % %     error('_jk Inconsistency of subjects in label file.')
-            % % % end
-            % % % if ~all(sigTbl.Subject == subjNm)
-            % % %     error('_jk Inconsistency of subjects in signal file.')
-            % % % end
-            % % % % TODO001 Sometimes, there is a mismatch between time extent of the signal and label file. In the future, fix the data files, so that this does
-            % % % % not happen.
-            % % % if abs(seconds(min(sigInfo.SigStart) - min(sigTbl.SigStart))) > 10 || abs(seconds(min(sigInfo.SigEnd) - min(sigTbl.SigEnd))) > 10 % If start or end times of signal and label file differ by more than 1 s
-            % % %     disp(['lblpn ', lblpn{lblfSub(klf)}, 10])
-            % % %     disp(['snlpn ', snlpn{snlfSub(klf)}, 10])
-            % % %     disp(sigInfo)
-            % % %     disp(sigTbl)
-            % % %     error('_jk Label file and signal file have different time extent')
-            % % % end
-            % % % sigInfo.SigStart = sigTbl.SigStart; % The signal file's SigStart will be used
-            % % % sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
-
-            % % % % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
-            % % % tol = seconds(60); % Gap of 60 seconds will be tolerated
-            % % % if binDt(kb) > max(ll.sigInfo.SigEnd) + tol
-            % % %     warning(['Data missing at ', datestr(binDt(kb)), '.'])
-            % % %     disp(lblfSub)
-            % % %     disp(snlfSub)
-            % % %     disp(['Block start: ', char(binDt(kb))]); %#ok<*DATST>
-            % % %     disp(['sigInfo.SigEnd: ', char(min(ll.sigInfo.SigEnd))]);
-            % % %     disp(['Difference: ', char(min(ll.sigInfo.SigEnd) - binDt(kb))])
-            % % %     continue
-            % % % end
+            if loadedFilepn ~= string(lblpn{lblfSub(klf)})
+                ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblDef', 'lblSet');
+                loadedFilepn = string(lblpn{lblfSub(klf)});
+            end
+            if ~dpLblOnlyTF
+                load(snlpn{snlfSub(klf)}, 'sigTbl')
+                snlChToProcessSub = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match')); % Subscripts of signal channels to be processed (e.g. we may want do ignore accelerometer channels)
+                sigTbl = sigTbl(snlChToProcessSub, :);
+                sigInfo = sigInfo(snlChToProcessSub, :);
+                if ~all(sigInfo.Subject == subjNm)
+                    error('_jk Inconsistency of subjects in label file.')
+                end
+                if ~all(sigTbl.Subject == subjNm)
+                    error('_jk Inconsistency of subjects in signal file.')
+                end
+                % TODO001 Sometimes, there is a mismatch between time extent of the signal and label file. In the future, fix the data files, so that this does
+                % not happen.
+                if abs(seconds(min(sigInfo.SigStart) - min(sigTbl.SigStart))) > 10 || abs(seconds(min(sigInfo.SigEnd) - min(sigTbl.SigEnd))) > 10 % If start or end times of signal and label file differ by more than 1 s
+                    disp(['lblpn ', lblpn{lblfSub(klf)}, 10])
+                    disp(['snlpn ', snlpn{snlfSub(klf)}, 10])
+                    disp(sigInfo)
+                    disp(sigTbl)
+                    error('_jk Label file and signal file have different time extent')
+                end
+                sigInfo.SigStart = sigTbl.SigStart; % The signal file's SigStart will be used
+                sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
+    
+                % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
+                tol = seconds(60); % Gap of 60 seconds will be tolerated
+                if binDt(kb) > max(ll.sigInfo.SigEnd) + tol
+                    warning(['Data missing at ', datestr(binDt(kb)), '.'])
+                    disp(lblfSub)
+                    disp(snlfSub)
+                    disp(['Block start: ', char(binDt(kb))]); %#ok<*DATST>
+                    disp(['sigInfo.SigEnd: ', char(min(ll.sigInfo.SigEnd))]);
+                    disp(['Difference: ', char(min(ll.sigInfo.SigEnd) - binDt(kb))])
+                    continue
+                end
+            end
 
             % Main calculation
             for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
@@ -723,8 +721,17 @@ dpDesc.(dpDesc.Name(1)) = d;
                         funcHandle = str2func(d.CalcFcn);
                         colnm = d.VarName; % Column name
                         numch = height(ll.sigInfo);
-                        binTables.(nm).(colnm)(klf, 1 : numch) =...
-                            funcHandle(ll, d, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                        switch d.SrcData
+                            case "Lbl"
+                                binTables.(nm).(colnm)(klf, 1 : numch) =...
+                                    funcHandle(ll, d, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                            case "Snl"
+                                binTables.(nm).(colnm)(klf, 1 : numch) =...
+                                    funcHandle(ls, d, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                            case "LblSnl"
+                                binTables.(nm).(colnm)(klf, 1 : numch) =...
+                                    funcHandle(ll, ls, d, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                        end
                     end
                 end
             end
@@ -737,13 +744,12 @@ dpDesc.(dpDesc.Name(1)) = d;
                 switch d.CalcLvl
                     case "file"
                         if ~isempty(binTables.(nm)) % If it is not empty, just apply mean over the first dimension (columns).
-
                             binTableFinal.(nm) = sum(binTables.(nm), 1);
                         else % If it is empty, the function mean would create one NaN in each cell of the table, which would be inconsistent with the dimensions of other cells if we process more than one channel
                             for kcol = 1 : width(dp.(nm))
                                 nn{1, kcol} = NaN(1, numel(dp.(nm){1, kcol})); %#ok<AGROW> % Create a cell array of NaNs to plug it in the binTables.(nm)
                             end
-                            binTableFinal.(nm) = nn; % Plug in the created NaN cells into the table. The NaNs have to be there because the row exists in the time axis dp.tax
+                            binTableFinal.(nm)(end, :) = nn; % Plug in the created NaN cells into the table. The NaNs have to be there because the row exists in the time axis dp.tax
                         end
                     case "bin"
                         funcHandle = str2func(d.CalcFcn);
@@ -757,64 +763,44 @@ dpDesc.(dpDesc.Name(1)) = d;
     end
 
 
-
-
-dp
-dp.(nm)
-
-
-
-
-
-
-
-
-
-% % % %     % szCharLabel = {'Sz time', ['Duration', 10, '(s)'], ['Severity', 10, '(Racine)'], ['Sz pwr', 10, '(mV^2)'], ['Post pwr', 10, '(mV^2)']}; % Short and tall
-% % % %     szCharLabel = {'Sz time', 'Duration (s)', 'Severity (Racine)', 'Sz pwr (mV^2)', 'Post pwr (mV^2)'};
-% % % %     siCharTbl = table(tax, szValidS, emgValidS, iedValidS, crcValidS,...
-% % % %         sz, art, emg, ied, pow, vrn, ac1, hmw, crc);
-% % % %     % siCharLabel = {'Time (days)', ['Valid', 10, 'sz (s)'], ['Valid', 10, 'EMG (s)'], ['Valid', 10, 'IED (s)'], ['Valid', 10, 'CrC (s)'],...
-% % % %     %     'Sz/day', 'Art %', ['EMG', 10, '%'], ['IED', 10, 'rate'], 'Power', 'Var', ['Auto', 10, 'corr'], 'HMW', ['Cross', 10, 'corr']};
-% % % %     siCharLabel = {'Time (days)', 'Valid sz (s)', 'Valid EMG (s)', 'Valid IED (s)', 'Valid CrC (s)',...
-% % % %         'Sz/day', 'Artif %', 'EMG %', 'IED/hour', 'Power', 'Variance', 'Auto-corr', 'HMW', 'Cross-corr'};
-% % % %     subjInfo.subjNm = subjNm;
-% % % %     subjInfo.subjNmOrig = subjInfo.subjNm;
-% % % %     subjInfo.anStartN = anStartN;
-% % % %     subjInfo.anEndN = anEndN;
-% % % %     subjNumber = regexp(subjNm, '\D\D\d\d\d+', 'match');
-% % % %     subjNumber = subjNumber{1}(3 : end);
-% % % %     whichSubj = find(contains(string(dobTable{:, 1}), subjNumber));
-% % % %     if ~isscalar(whichSubj)
-% % % %         error(['_jk Date of birth table has multiple subjects which have ', num2str(subjNumber), ' in their name.'])
-% % % %     end
-% % % %     subjInfo.dob = datenum(dobTable{whichSubj, 2});
-% % % %     % % % subjInfo.dob = datenum(dobTable{string(dobTable{:, 1}) == subjNm, 2});
-% % % %     subjInfo.sex = dobTable{string(dobTable{:, 1}) == subjNm, 3};
-% % % %     stg.szCharYLbl = szCharLabel;
-% % % %     stg.siCharYLbl = siCharLabel;
-% % % %     stg.saCharYLbl = [szCharLabel, siCharLabel];
-% % % %     stg.ssCharYLbl = [siCharLabel, siCharLabel];
-% % % %     if isa(subjInfo.dob, 'table')
-% % % %         subjInfo.dob = datenum(subjInfo.dob{1, 1});
-% % % %     end
-% % % %     if ~stg.keepOriginalSubjectName
-% % % %         subjInfo.subjNm = ['Mouse', num2str(stg.subjNumber(ksubj), '%02d')];
-% % % %     end
+    subjInfo.subjNm = subjNm;
+    subjInfo.subjNmOrig = subjInfo.subjNm;
+    subjInfo.anStartDt = anStartDt;
+    subjInfo.anEndDt = anEndDt;
+    subjNumber = regexp(subjNm, '\D\D\d\d\d+', 'match');
+    subjNumber = subjNumber{1}(3 : end);
+    whichSubj = find(contains(string(dobTable{:, 1}), subjNumber));
+    if ~isscalar(whichSubj)
+        error(['_jk Date of birth table has multiple subjects which have ', num2str(subjNumber), ' in their name.'])
+    end
+    subjInfo.dob = dobTable.Birth(whichSubj);
+    subjInfo.sex = dobTable{string(dobTable{:, 1}) == subjNm, 3};
+    if ~stg.keepOriginalSubjectName
+        subjInfo.subjNm = ['Mouse', num2str(stg.subjNumber(ksubj), '%02d')];
+    end
 % % % %     save([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
     
-    function [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, snlpn, subjNmOrig)
+    function [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, subjNmOrig, varargin)
         load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet') %#ok<NASGU>
         % There can be multiple subjects in one lbl3 file. Keep only channels containing the data on the subject.
         ss = strsplit(subjNmOrig, 'ET'); % ET stands for ear tag. Sometimes it is included in the subject name
         whichChannelsLbl = find(contains(sigInfo.Subject, ss{end}));
         sigInfo = sigInfo(whichChannelsLbl, :);
-        lblSet = lblSet(ismember(lblSet.Channel, whichChannelsLbl), :);
+        % % % % % % % % % % lblSet = lblSet(ismember(lblSet.Channel, whichChannelsLbl), :);
         % Check that all rows belong to the same subject
         subjNm = sigInfo.Subject(1);
         if ~all(sigInfo.Subject == subjNm)
             disp(sigInfo)
             error('_jk Multiple subjects in label file.')
+        end
+        anStartDt = min(sigInfo.SigStart); % Analysis start determined by label files
+        lastLbl = load(lblpn{end});
+        lastSigInfo = lastLbl.sigInfo(whichChannelsLbl, :);
+        anEndDt = max(lastSigInfo.SigEnd); % Analysis end determined by signal files
+        if numel(varargin) == 0
+            return
+        else
+            snlpn = varargin{1};
         end
         % Now the same with signal data (e.g. markers of critical slowing)
         load(snlpn{1}, 'sigTbl')
@@ -824,9 +810,9 @@ dp.(nm)
         if ~all(sigTbl.Subject == subjNm)
             error('_jk Multiple subjects in signal file.')
         end
-        anStartDt = min(sigInfo.SigStart); % Analysis start determined by label files
+        % % % % % % % % % % % anStartDt = min(sigInfo.SigStart); % Analysis start determined by label files
         anStartDtSig = min(sigTbl.SigStart); % Analysis start determined by signal files
-        lastLbl = load(lblpn{end});
+        % % % % % % % % % % % % lastLbl = load(lblpn{end});
         lastSigInfo = lastLbl.sigInfo(whichChannelsLbl, :);
         if any(sigInfo.Subject ~= lastSigInfo.Subject)
             error('_jk Last label file has diffent channels than the first file.')
@@ -836,7 +822,7 @@ dp.(nm)
         if any(sigTbl.Subject ~= lastSigTbl.Subject)
             error('_jk Last signal file has diffent channels than the first file.')
         end
-        anEndDt = max(lastSigInfo.SigEnd); % Analysis end determined by signal files
+        % % % % % % % % % % anEndDt = max(lastSigInfo.SigEnd); % Analysis end determined by signal files
         anEndDtSig = max(lastSigTbl.SigEnd); % Analysis end determined by label files
         if abs(anEndDt - anEndDtSig) > seconds(1) || abs(anStartDt - anStartDtSig) > seconds(1) % If they differ by more than a second
             disp('Analysis start difference:')
@@ -903,111 +889,111 @@ dp.(nm)
     % % % % % % % % %     if isempty(mrkOffsetN); mrkOffsetN = []; end
     % % % % % % % % %     tMrk = logical(tMrk); % The last sampling interval is not complete. Although it may contain a label (probably label end), we will not have complete data about IED rate, critical slowing etc. So we discard it.
     % % % % % % % % % end
-    function szRacine = getRacine(szOnsetN, lblSet)
-        szRacine = [];
-        if ~isempty(szOnsetN)
-            szRacine = NaN(size(szOnsetN));
-            racInd = lblSet.ClassName == "RacineJK01";
-            if any(racInd)
-                lblSetRac = lblSet(racInd, :);
-                for ksz = 1 : size(szOnsetN, 1)
-                    whichRac = find(abs(datenum(lblSetRac.Start) - szOnsetN(ksz)) < 20/3600/24, 1);
-                    if isempty(whichRac)
-                        szRacine(1, ksz) = NaN;
-                    else
-                        szRacine(1, ksz) = lblSetRac.Value(whichRac);
-                    end
-                end
-            end
-        end
-    end
-    function szPower = getPower(szOnsetN, szOffsetN, sigTbl)
-        szPower = [];
-        if ~isempty(szOnsetN)
-%             szPower = NaN(size(sigInfo, 1), size(szOnsetN, 2));
-            szPower = NaN(stg.numEegCh, size(szOnsetN, 2));
-            for kc = 1 : stg.numEegCh
-                [stg.flt.num, stg.flt.den] = butter(stg.flt.szN, [stg.flt.szF1, stg.flt.szF2]/(sigTbl.Fs(kc)/2)); % Get the filter which will be used to remove slow waves and EMG from the seizure signal
-                snlSz = filtfilt(stg.flt.num, stg.flt.den, double(sigTbl.Data{kc})); % Filter the whole signal to (hopefully) avoid artifacts at the beginning and end of the seizure
-                for ksz = 1 : size(szOnsetN, 1)
-                    szStartSub = floor((szOnsetN(ksz) - datenum(sigTbl.SigStart(kc)))*3600*24*sigTbl.Fs(kc)) + 1;
-                    szEndSub = floor((szOffsetN(ksz) - datenum(sigTbl.SigStart(kc)))*3600*24*sigTbl.Fs(kc));
-                    if szEndSub > numel(snlSz)
-                        numSamp2 = (szOffsetN(ksz) - snlN(snlfSub(klf) + 1)) * 3600*24*sigTbl.Fs(kc); % Number of samples that need to be taken from the second signal file
-                        if numSamp2 > 0
-                            l2 = load(snlpn{snlfSub(klf) + 1}); % Get next file. Not very efficient but this situation is rare.
-                            snlSz2 = filtfilt(stg.flt.num, stg.flt.den, double(l2.sigTbl.Data{kc}));
-                            snlSz2 = snlSz2(1 : numSamp2);
-                            szSnl = [snlSz, snlSz2];
-                        else
-                            szEndSub = numel(snlSz);
-                            szSnl = snlSz(szStartSub : szEndSub);
-                        end
-                    else
-                        szSnl = snlSz(szStartSub : szEndSub);
-                    end
-                    szPower(kc, ksz) = sum(szSnl.*szSnl)/size(szSnl, 2);
-                end
-            end
-        end
-    end
-    function postIctPower = getPostIctPower(szOffsetN, sigTbl)
-        postIctDurS = 5;
-        if sigTbl.Subject(1) == "jc20190313_2" && abs(sigTbl.SigStart(1) - datetime('190417_165755', 'InputFormat', 'yyMMdd_HHmmss')) < seconds(10)
-            postIctDurS = 3;
-        end
-        postIctPower = [];
-        if ~isempty(szOffsetN)
-%             postIctPower = NaN(size(sigInfo, 1), size(szOffsetN, 2));
-            postIctPower = NaN(stg.numEegCh, size(szOffsetN, 2));
-            for kc = 1 : stg.numEegCh
-                [stg.flt.num, stg.flt.den] = butter(stg.flt.szN, [stg.flt.szF1, stg.flt.szF2]/(sigTbl.Fs(kc)/2)); % Get the filter which will be used to remove slow waves and EMG from the seizure signal
-                snlSz = filtfilt(stg.flt.num, stg.flt.den, double(sigTbl.Data{kc})); % Filter the whole signal to (hopefully) avoid artifacts at the beginning and end of the seizure
-                for ksz = 1 : size(szOffsetN, 1)
-                    postIctStartSub = floor((szOffsetN(ksz) - datenum(sigTbl.SigStart(kc)))*3600*24*sigTbl.Fs(kc)) + 1;
-                    postIctEndSub = floor((szOffsetN(ksz) - datenum(sigTbl.SigStart(kc)))*3600*24*sigTbl.Fs(kc) + postIctDurS*sigTbl.Fs(kc));
-%                     if postIctEndSub > numel(snlSz)
-%                         l2 = load(snlpn{snlfSub(klf) + 1}); % Get next file. Not very efficient but this situation is rare.
-%                         snlSz2 = filtfilt(stg.flt.num, stg.flt.den, double(l2.sigTbl.Data{kc}));
-%                         snlSz = [snlSz, snlSz2];
-%                     end
-%                     szSnl = snlSz(postIctStartSub : postIctEndSub);
-%                     postIctPower(kc, ksz) = sum(szSnl.*szSnl)/size(szSnl, 2);
-                    
-                    
-                    if postIctEndSub > numel(snlSz)
-                        numSamp2 = (szOffsetN(ksz) + postIctDurS/3600/24 - snlN(snlfSub(klf) + 1)) * 3600*24*sigTbl.Fs(kc); % Number of samples that need to be taken from the second signal file
-                        if numSamp2 > 0
-                            l2 = load(snlpn{snlfSub(klf) + 1}); % Get next file. Not very efficient but this situation is rare.
-                            snlSz2 = filtfilt(stg.flt.num, stg.flt.den, double(l2.sigTbl.Data{kc}));
-                            snlSz2 = snlSz2(1 : numSamp2);
-                            szSnl = [snlSz, snlSz2];
-                        else
-                            postIctEndSub = numel(snlSz);
-                            szSnl = snlSz(postIctStartSub : postIctEndSub);
-                        end
-                    else
-                        szSnl = snlSz(postIctStartSub : postIctEndSub);
-                    end
-                    postIctPower(kc, ksz) = sum(szSnl.*szSnl)/size(szSnl, 2);
-                end
-            end
-        end
-    end
-    function numMrk = countMrk(lblSetMrk, sigStartN, sigEndN, blStart, blEnd)
-        lblSetMrk = sortrows(lblSetMrk, "Start"); % Sort them
-        iedStartN = datenum(lblSetMrk.Start);
-        remInd = [false; diff(iedStartN) < stg.minIedSepS/3600/24]; % Get indices to...
-        lblSetMrk(remInd, :) = []; % ...remove IEDs too early after previous one. It deletes possible duplicates or polyspikes.
-        lblSetMrk = lblSetMrk(iedStartN >= sigStartN & iedStartN <= sigEndN, :); % Remove markers belonging to other signal files (this could happen due to a bug);
-        lblSetMrk = lblSetMrk(iedStartN > blStart & iedStartN < blEnd, :);
-        numMrk = size(lblSetMrk, 1);
-    end
-    function [mrkOnN, mrkOffN] = tToOON(t, tStartN, tFs)
-        t = [0; double(t(:)); 0];
-        mrkOnN = (find(diff(t) == 1) - 1)/tFs/3600/24 + tStartN;
-        mrkOffN = (find(diff(t) == -1) - 1)/tFs/3600/24 + tStartN;
-    end
+% % % % % % % %     function szRacine = getRacine(szOnsetN, lblSet)
+% % % % % % % %         szRacine = [];
+% % % % % % % %         if ~isempty(szOnsetN)
+% % % % % % % %             szRacine = NaN(size(szOnsetN));
+% % % % % % % %             racInd = lblSet.ClassName == "RacineJK01";
+% % % % % % % %             if any(racInd)
+% % % % % % % %                 lblSetRac = lblSet(racInd, :);
+% % % % % % % %                 for ksz = 1 : size(szOnsetN, 1)
+% % % % % % % %                     whichRac = find(abs(datenum(lblSetRac.Start) - szOnsetN(ksz)) < 20/3600/24, 1);
+% % % % % % % %                     if isempty(whichRac)
+% % % % % % % %                         szRacine(1, ksz) = NaN;
+% % % % % % % %                     else
+% % % % % % % %                         szRacine(1, ksz) = lblSetRac.Value(whichRac);
+% % % % % % % %                     end
+% % % % % % % %                 end
+% % % % % % % %             end
+% % % % % % % %         end
+% % % % % % % %     end
+% % % % % % % %     function szPower = getPower(szOnsetN, szOffsetN, sigTbl)
+% % % % % % % %         szPower = [];
+% % % % % % % %         if ~isempty(szOnsetN)
+% % % % % % % % %             szPower = NaN(size(sigInfo, 1), size(szOnsetN, 2));
+% % % % % % % %             szPower = NaN(stg.numEegCh, size(szOnsetN, 2));
+% % % % % % % %             for kc = 1 : stg.numEegCh
+% % % % % % % %                 [stg.flt.num, stg.flt.den] = butter(stg.flt.szN, [stg.flt.szF1, stg.flt.szF2]/(sigTbl.Fs(kc)/2)); % Get the filter which will be used to remove slow waves and EMG from the seizure signal
+% % % % % % % %                 snlSz = filtfilt(stg.flt.num, stg.flt.den, double(sigTbl.Data{kc})); % Filter the whole signal to (hopefully) avoid artifacts at the beginning and end of the seizure
+% % % % % % % %                 for ksz = 1 : size(szOnsetN, 1)
+% % % % % % % %                     szStartSub = floor((szOnsetN(ksz) - datenum(sigTbl.SigStart(kc)))*3600*24*sigTbl.Fs(kc)) + 1;
+% % % % % % % %                     szEndSub = floor((szOffsetN(ksz) - datenum(sigTbl.SigStart(kc)))*3600*24*sigTbl.Fs(kc));
+% % % % % % % %                     if szEndSub > numel(snlSz)
+% % % % % % % %                         numSamp2 = (szOffsetN(ksz) - snlN(snlfSub(klf) + 1)) * 3600*24*sigTbl.Fs(kc); % Number of samples that need to be taken from the second signal file
+% % % % % % % %                         if numSamp2 > 0
+% % % % % % % %                             l2 = load(snlpn{snlfSub(klf) + 1}); % Get next file. Not very efficient but this situation is rare.
+% % % % % % % %                             snlSz2 = filtfilt(stg.flt.num, stg.flt.den, double(l2.sigTbl.Data{kc}));
+% % % % % % % %                             snlSz2 = snlSz2(1 : numSamp2);
+% % % % % % % %                             szSnl = [snlSz, snlSz2];
+% % % % % % % %                         else
+% % % % % % % %                             szEndSub = numel(snlSz);
+% % % % % % % %                             szSnl = snlSz(szStartSub : szEndSub);
+% % % % % % % %                         end
+% % % % % % % %                     else
+% % % % % % % %                         szSnl = snlSz(szStartSub : szEndSub);
+% % % % % % % %                     end
+% % % % % % % %                     szPower(kc, ksz) = sum(szSnl.*szSnl)/size(szSnl, 2);
+% % % % % % % %                 end
+% % % % % % % %             end
+% % % % % % % %         end
+% % % % % % % %     end
+% % % % % % % %     function postIctPower = getPostIctPower(szOffsetN, sigTbl)
+% % % % % % % %         postIctDurS = 5;
+% % % % % % % %         if sigTbl.Subject(1) == "jc20190313_2" && abs(sigTbl.SigStart(1) - datetime('190417_165755', 'InputFormat', 'yyMMdd_HHmmss')) < seconds(10)
+% % % % % % % %             postIctDurS = 3;
+% % % % % % % %         end
+% % % % % % % %         postIctPower = [];
+% % % % % % % %         if ~isempty(szOffsetN)
+% % % % % % % % %             postIctPower = NaN(size(sigInfo, 1), size(szOffsetN, 2));
+% % % % % % % %             postIctPower = NaN(stg.numEegCh, size(szOffsetN, 2));
+% % % % % % % %             for kc = 1 : stg.numEegCh
+% % % % % % % %                 [stg.flt.num, stg.flt.den] = butter(stg.flt.szN, [stg.flt.szF1, stg.flt.szF2]/(sigTbl.Fs(kc)/2)); % Get the filter which will be used to remove slow waves and EMG from the seizure signal
+% % % % % % % %                 snlSz = filtfilt(stg.flt.num, stg.flt.den, double(sigTbl.Data{kc})); % Filter the whole signal to (hopefully) avoid artifacts at the beginning and end of the seizure
+% % % % % % % %                 for ksz = 1 : size(szOffsetN, 1)
+% % % % % % % %                     postIctStartSub = floor((szOffsetN(ksz) - datenum(sigTbl.SigStart(kc)))*3600*24*sigTbl.Fs(kc)) + 1;
+% % % % % % % %                     postIctEndSub = floor((szOffsetN(ksz) - datenum(sigTbl.SigStart(kc)))*3600*24*sigTbl.Fs(kc) + postIctDurS*sigTbl.Fs(kc));
+% % % % % % % % %                     if postIctEndSub > numel(snlSz)
+% % % % % % % % %                         l2 = load(snlpn{snlfSub(klf) + 1}); % Get next file. Not very efficient but this situation is rare.
+% % % % % % % % %                         snlSz2 = filtfilt(stg.flt.num, stg.flt.den, double(l2.sigTbl.Data{kc}));
+% % % % % % % % %                         snlSz = [snlSz, snlSz2];
+% % % % % % % % %                     end
+% % % % % % % % %                     szSnl = snlSz(postIctStartSub : postIctEndSub);
+% % % % % % % % %                     postIctPower(kc, ksz) = sum(szSnl.*szSnl)/size(szSnl, 2);
+% % % % % % % % 
+% % % % % % % % 
+% % % % % % % %                     if postIctEndSub > numel(snlSz)
+% % % % % % % %                         numSamp2 = (szOffsetN(ksz) + postIctDurS/3600/24 - snlN(snlfSub(klf) + 1)) * 3600*24*sigTbl.Fs(kc); % Number of samples that need to be taken from the second signal file
+% % % % % % % %                         if numSamp2 > 0
+% % % % % % % %                             l2 = load(snlpn{snlfSub(klf) + 1}); % Get next file. Not very efficient but this situation is rare.
+% % % % % % % %                             snlSz2 = filtfilt(stg.flt.num, stg.flt.den, double(l2.sigTbl.Data{kc}));
+% % % % % % % %                             snlSz2 = snlSz2(1 : numSamp2);
+% % % % % % % %                             szSnl = [snlSz, snlSz2];
+% % % % % % % %                         else
+% % % % % % % %                             postIctEndSub = numel(snlSz);
+% % % % % % % %                             szSnl = snlSz(postIctStartSub : postIctEndSub);
+% % % % % % % %                         end
+% % % % % % % %                     else
+% % % % % % % %                         szSnl = snlSz(postIctStartSub : postIctEndSub);
+% % % % % % % %                     end
+% % % % % % % %                     postIctPower(kc, ksz) = sum(szSnl.*szSnl)/size(szSnl, 2);
+% % % % % % % %                 end
+% % % % % % % %             end
+% % % % % % % %         end
+% % % % % % % %     end
+% % % % % % % %     function numMrk = countMrk(lblSetMrk, sigStartN, sigEndN, blStart, blEnd)
+% % % % % % % %         lblSetMrk = sortrows(lblSetMrk, "Start"); % Sort them
+% % % % % % % %         iedStartN = datenum(lblSetMrk.Start);
+% % % % % % % %         remInd = [false; diff(iedStartN) < stg.minIedSepS/3600/24]; % Get indices to...
+% % % % % % % %         lblSetMrk(remInd, :) = []; % ...remove IEDs too early after previous one. It deletes possible duplicates or polyspikes.
+% % % % % % % %         lblSetMrk = lblSetMrk(iedStartN >= sigStartN & iedStartN <= sigEndN, :); % Remove markers belonging to other signal files (this could happen due to a bug);
+% % % % % % % %         lblSetMrk = lblSetMrk(iedStartN > blStart & iedStartN < blEnd, :);
+% % % % % % % %         numMrk = size(lblSetMrk, 1);
+% % % % % % % %     end
+% % % % % % % %     function [mrkOnN, mrkOffN] = tToOON(t, tStartN, tFs)
+% % % % % % % %         t = [0; double(t(:)); 0];
+% % % % % % % %         mrkOnN = (find(diff(t) == 1) - 1)/tFs/3600/24 + tStartN;
+% % % % % % % %         mrkOffN = (find(diff(t) == -1) - 1)/tFs/3600/24 + tStartN;
+% % % % % % % %     end
 end
 function [clust, szBelongsToClust, stats] = extractClusters(subjInfo, szCharTbl, siCharTbl, ksubj)
     global stg
