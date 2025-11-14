@@ -532,98 +532,123 @@ dpDesc.(dpDesc.Name(2)) =...
     [lblpn, lblDt] = gd.dbfGetPnDt(lblp); % Get path name and datenum
     [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, snlpn, subjNmOrig);
     
-    %% Data to stem
-    % Initialize the table in a field of the ds structure
-    for kn = 1 : numel(dsDesc.Name)
-        nm = dsDesc.Name(kn); % Name of the phenomenon we are now initializing for
-        varNames = [dsDesc.(nm){1, :}];
-        varTypes = [dsDesc.(nm){2, :}];
-        ds.(nm) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
-    end
-    
-    % Loop over label files
-    fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
-    for klbl = 1 : numel(lblpn)
-        fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
-        fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
-        ll = load(lblpn{klbl});
-        for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
-            nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
-            % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
-            numNewRows = sum(ll.lblSet.ClassName == dsDesc.(nm){4, 1}); % Number of rows
-            varNames = [dsDesc.(nm){1, :}];
-            varTypes = [dsDesc.(nm){2, :}];
-            newRows = table('Size', [numNewRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
-            for kchar = 1 : size(dsDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
-                funcHandle = str2func(dsDesc.(nm){3, kchar});
-                colnm = dsDesc.(nm){1, kchar};
-                newRows.(colnm) = funcHandle(ll, dsDesc.(nm){4, kchar}, dsDesc.(nm){5, kchar}, dsDesc.(nm){6, kchar});
-            end
-            ds.(nm) = [ds.(nm); newRows];
-        end
-    end
+    % %% Data to stem
+    % % Initialize the table in a field of the ds structure
+    % for kn = 1 : numel(dsDesc.Name)
+    %     nm = dsDesc.Name(kn); % Name of the phenomenon we are now initializing for
+    %     varNames = [dsDesc.(nm){1, :}];
+    %     varTypes = [dsDesc.(nm){2, :}];
+    %     ds.(nm) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+    % end
+    % 
+    % % Loop over label files
+    % fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+    % for klbl = 1 : numel(lblpn)
+    %     fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+    %     fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+    %     ll = load(lblpn{klbl});
+    %     for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
+    %         nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
+    %         % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
+    %         numNewRows = sum(ll.lblSet.ClassName == dsDesc.(nm){4, 1}); % Number of rows
+    %         varNames = [dsDesc.(nm){1, :}];
+    %         varTypes = [dsDesc.(nm){2, :}];
+    %         newRows = table('Size', [numNewRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+    %         for kchar = 1 : size(dsDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
+    %             funcHandle = str2func(dsDesc.(nm){3, kchar});
+    %             colnm = dsDesc.(nm){1, kchar};
+    %             newRows.(colnm) = funcHandle(ll, dsDesc.(nm){4, kchar}, dsDesc.(nm){5, kchar}, dsDesc.(nm){6, kchar});
+    %         end
+    %         ds.(nm) = [ds.(nm); newRows];
+    %     end
+    % end
 
     %% Data to plot
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dpDesc.Name = ["Ied"; "Fr"]; % Types of tables that will be created (possibly, it could be all in one table).
-invalidity = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
+dpDesc.Name = "Ied"; % Types of tables that will be created (possibly, it could be all in one table).
+exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
+exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
 minSepIedS = 0.1;
-dpDesc.(dpDesc.Name(1)) =...
-    {"Valid",                       "Count",                       "Rate"; % Name of the column
-     "double",                      "double",                      "double"; % Type of the column
-     "file",                        "file",                        "bin"; % Calculated per file or per bin
-     "gd.dpGetValidAmountCh",       "gd.dpGetCountCh"; % Function which will calculate the contents of the column
-     "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
-     contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
-     minSepIedS,                    minSepIedS}; % Minimum separation of events otherwise merged
+% % % % % % % % % % dpDesc.(dpDesc.Name(1)) =...
+% % % % % % % % % %     {"ValidS",                      "Count",                       "Rate"; % Name of the column
+% % % % % % % % % %      "double",                      "double",                      "double"; % Type of the column
+% % % % % % % % % %      "file",                        "file",                        "bin"; % Calculated per file or per bin
+% % % % % % % % % %      "gd.dpfGetValidAmountCh",      "gd.dpfGetCountCh",            "gd.dpbGetRateCh"; % Function which will calculate the contents of the column
+% % % % % % % % % %      "IED_Janca",                   "IED_Janca",                   "IED_Janca"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
+% % % % % % % % % %      contamIed,                     contamIed,                     []; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
+% % % % % % % % % %      minSepIedS,                    minSepIedS,                    []}; % Minimum separation of events otherwise merged
+d(1).VarName    = "ValidS";
+d(1).VarType    = "double";
+d(1).CalcLvl    = "file";
+d(1).CalcFcn    = "gd.dpfGetValidAmountCh";
+d(1).MainLbl    = "IED_Janca";
+d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(1).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(1).MinSepS    = minSepIedS;
+d(2).VarName    = "Count";
+d(2).VarType    = "double";
+d(2).CalcLvl    = "file";
+d(2).CalcFcn    = "gd.dpfGetCountCh";
+d(2).MainLbl    = "IED_Janca";
+d(2).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(2).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(2).MinSepS    = minSepIedS;
+d(3).VarName    = "RatePh";
+d(3).VarType    = "double";
+d(3).CalcLvl    = "bin";
+d(3).CalcFcn    = "gd.dpbGetRatePhCh";
+d(3).MainLbl    = "IED_Janca";
+d(3).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(3).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(3).MinSepS    = minSepIedS;
+dpDesc.(dpDesc.Name(1)) = d;
 
-% dpDesc.Name = ["Valid"; "Count"; "Rate"]; % Types of tables that will be created (possibly, it could be all in one table).
-% invalidity = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
-% minSepIedS = 0.1;
-dpDesc.(dpDesc.Name(1)) =...
-    {"ied",                         "fr"; % Name of the column
-     "double",                      "double"; % Type of the column
-     "file",                        "file"; % Calculated per file or per bin
-     "gd.dpGetValidAmountCh",       "gd.dpGetValidAmountCh"; % Function which will calculate the contents of the column
-     "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
-     contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
-     minSepIedS,                    minSepIedS}; % Minimum separation of events otherwise merged
-dpDesc.(dpDesc.Name(2)) =...
-    {"ied",                         "fr";
-     "double",                      "double";
-     "file",                        "file"; % Calculated per file or per bin
-     "gd.dpGetCountCh",             "gd.dpGetCountCh";
-     "IED_Janca",                   "fast ripple";
-     contamIed,                     contamIed;
-     minSepIedS,                    minSepIedS};
-dpDesc.(dpDesc.Name(3)) =...
-    {"ied",                         "fr";
-     "double",                      "double";
-     "bin",                         "bin"; % Calculated per file or per bin
-     "gd.dpGetRateCh",              "gd.dpGetRateCh";
-     "IED_Janca",                   "fast ripple";
-     [],                            [];
-     [],                            []};
+% % % % % % % dpDesc.Name = ["Valid"; "Count"; "Rate"]; % Types of tables that will be created (possibly, it could be all in one table).
+% % % % % % % invalidity = ["Seizure", "seizure", "SEIZURE", "S", "art", "Art", "EMG", "emg", "Emg"];
+% % % % % % % minSepIedS = 0.1;
+% % % % % % dpDesc.(dpDesc.Name(1)) =...
+% % % % % %     {"ied",                         "fr"; % Name of the column
+% % % % % %      "double",                      "double"; % Type of the column
+% % % % % %      "file",                        "file"; % Calculated per file or per bin
+% % % % % %      "gd.dpGetValidAmountCh",       "gd.dpGetValidAmountCh"; % Function which will calculate the contents of the column
+% % % % % %      "IED_Janca",                   "fast ripple"; % Label classes which will serve as a source (typically only one class, e.g. fast_ripples)
+% % % % % %      contamIed,                     contamIed; % Labels classes which will indicate the epochs excluded from analyses (typically artifacts)
+% % % % % %      minSepIedS,                    minSepIedS}; % Minimum separation of events otherwise merged
+% % % % % % dpDesc.(dpDesc.Name(2)) =...
+% % % % % %     {"ied",                         "fr";
+% % % % % %      "double",                      "double";
+% % % % % %      "file",                        "file"; % Calculated per file or per bin
+% % % % % %      "gd.dpGetCountCh",             "gd.dpGetCountCh";
+% % % % % %      "IED_Janca",                   "fast ripple";
+% % % % % %      contamIed,                     contamIed;
+% % % % % %      minSepIedS,                    minSepIedS};
+% % % % % % dpDesc.(dpDesc.Name(3)) =...
+% % % % % %     {"ied",                         "fr";
+% % % % % %      "double",                      "double";
+% % % % % %      "bin",                         "bin"; % Calculated per file or per bin
+% % % % % %      "gd.dpGetRateCh",              "gd.dpGetRateCh";
+% % % % % %      "IED_Janca",                   "fast ripple";
+% % % % % %      [],                            [];
+% % % % % %      [],                            []};
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Split the time into bins
-    binDt = anStartDt : seconds(stg.dpBinLenS) : anEndDt; % Borders of bins in datenum
-    numbin = length(binDt) - 1; % Number of bins
-    dp.tax = binDt(2 : end); % We timestamp each bin to the end of the bin
+    binDt = (anStartDt : seconds(stg.dpBinLenS) : anEndDt)'; % Borders of bins in datenum
+    numbin = numel(binDt) - 1; % Number of bins
+    dp.tax = binDt(2 : end);  % Each bin should be assigned the timestamp of its end because that is the moment we have had acquired (and processed) all data of the block.
 
     % Initialize the table in a field of the dp structure
     for kn = 1 : numel(dpDesc.Name)
-        nm = dpDesc.Name(kn);
-        varNames = [dpDesc.(nm){1, :}];
-        varTypes = [dpDesc.(nm){2, :}];
-        dp.(nm) = table('Size', [0, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames);
+        nm = dpDesc.Name(kn); % Name of the phenomenon to analyze
+        dd = dpDesc.(nm); % Data description (only for this phenomenon)
+        dp.(nm) = table('Size', [0 length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
     end
     
     % Loop over time bins
     fprintf(['\nBin No. ', num2str(0, '%06d'), '/', num2str(numbin, '%06d'), '\n'])
     for kb = 1 : numbin % Loop over time blocks
-        fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+        % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
         fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(numbin, '%06d'), '\n'])
         tol = seconds(0.001); % Tolerance in seconds
         lblfSub = find(lblDt > binDt(kb) + tol, 1, 'first') - 1 : find(lblDt <= binDt(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
@@ -645,11 +670,9 @@ dpDesc.(dpDesc.Name(3)) =...
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
             % Initialize a new table which will be filled in and appended to the dp.(dpDesc.Name(kn)).
             nm = dpDesc.Name(kn);
+            dd = dpDesc.(nm);
             numRows = numel(lblfSub); % Number of rows
-            varNames = [dpDesc.(nm){1, :}];
-            varTypes = [dpDesc.(nm){2, :}];
-            binTables.(nm) = table('Size', [numRows, numel(varNames)], 'VariableTypes', varTypes, 'VariableNames', varNames); % Table of data from all files belonging to this time bin
-            binTables.(nm)(1, :) = [];
+            binTables.(nm) = table('Size', [numRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Table of data from all files belonging to this time bin
         end
 
         % Loop over files within this block
@@ -677,46 +700,67 @@ dpDesc.(dpDesc.Name(3)) =...
             % % % sigInfo.SigStart = sigTbl.SigStart; % The signal file's SigStart will be used
             % % % sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
 
-            % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
-            tol = seconds(60); % Gap of 60 seconds will be tolerated
-            if binDt(kb) > max(ll.sigInfo.SigEnd) + tol
-                warning(['Data missing at ', datestr(binDt(kb)), '.'])
-                disp(lblfSub)
-                disp(snlfSub)
-                disp(['Block start: ', char(binDt(kb))]); %#ok<*DATST>
-                disp(['sigInfo.SigEnd: ', char(min(ll.sigInfo.SigEnd))]);
-                disp(['Difference: ', char(min(ll.sigInfo.SigEnd) - binDt(kb))])
-                continue
-            end
+            % % % % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
+            % % % tol = seconds(60); % Gap of 60 seconds will be tolerated
+            % % % if binDt(kb) > max(ll.sigInfo.SigEnd) + tol
+            % % %     warning(['Data missing at ', datestr(binDt(kb)), '.'])
+            % % %     disp(lblfSub)
+            % % %     disp(snlfSub)
+            % % %     disp(['Block start: ', char(binDt(kb))]); %#ok<*DATST>
+            % % %     disp(['sigInfo.SigEnd: ', char(min(ll.sigInfo.SigEnd))]);
+            % % %     disp(['Difference: ', char(min(ll.sigInfo.SigEnd) - binDt(kb))])
+            % % %     continue
+            % % % end
+
+            % Main calculation
             for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
                 nm = dpDesc.Name(kn);
+                dd = dpDesc.(nm);
                 % if dpDecs
                 for kchar = 1 : size(dpDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
-                    funcHandle = str2func(dpDesc.(nm){3, kchar});
-                    colnm = dpDesc.(nm){1, kchar}; % Column name
-                    numch = height(ll.sigInfo);
-                    binTables.(nm).(colnm)(klf, 1 : numch) =...
-                        funcHandle(ll, dpDesc.(nm){4, kchar}, dpDesc.(nm){5, kchar}, dpDesc.(nm){6, kchar}, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                    d = dd(kchar);
+                    if d.CalcLvl == "file"
+                        funcHandle = str2func(d.CalcFcn);
+                        colnm = d.VarName; % Column name
+                        numch = height(ll.sigInfo);
+                        binTables.(nm).(colnm)(klf, 1 : numch) =...
+                            funcHandle(ll, d, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                    end
                 end
             end
         end % Over files within the block
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
             nm = dpDesc.Name(kn);
-            if ~isempty(binTables.(nm)) % If it is not empty, just apply mean over the first dimension (columns).
-                binTables.(nm) = sum(binTables.(nm), 1);
-            else % If it is empty, the function mean would create one NaN in each cell of the table, which would be inconsistent with the dimensions of other cells if we process more than one channel
-                for kcol = 1 : width(dp.(nm))
-                    nn{1, kcol} = NaN(1, numel(dp.(nm){1, kcol})); %#ok<AGROW> % Create a cell array of NaNs to plug it in the binTables.(nm)
+            dd = dpDesc.(nm);
+            for kchar = 1 : size(dpDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
+                d = dd(kchar);
+                switch d.CalcLvl
+                    case "file"
+                        if ~isempty(binTables.(nm)) % If it is not empty, just apply mean over the first dimension (columns).
+
+                            binTableFinal.(nm) = sum(binTables.(nm), 1);
+                        else % If it is empty, the function mean would create one NaN in each cell of the table, which would be inconsistent with the dimensions of other cells if we process more than one channel
+                            for kcol = 1 : width(dp.(nm))
+                                nn{1, kcol} = NaN(1, numel(dp.(nm){1, kcol})); %#ok<AGROW> % Create a cell array of NaNs to plug it in the binTables.(nm)
+                            end
+                            binTableFinal.(nm) = nn; % Plug in the created NaN cells into the table. The NaNs have to be there because the row exists in the time axis dp.tax
+                        end
+                    case "bin"
+                        funcHandle = str2func(d.CalcFcn);
+                        colnm = d.VarName; % Column name
+                        numch = height(ll.sigInfo);
+                        binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables, nm);
                 end
-                binTables.(nm) = nn; % Plug in the created NaN cells into the table. The NaNs have to be there because the row exists in the time axis dp.tax
             end
-            dp.(nm) = [dp.(nm); binTables.(nm)]; % Concatenate
+            dp.(nm) = [dp.(nm); binTableFinal.(nm)]; % Concatenate
         end
     end
 
 
 
 
+dp
+dp.(nm)
 
 
 
@@ -726,92 +770,6 @@ dpDesc.(dpDesc.Name(3)) =...
 
 
 
-% % % %         % %%%%%%%%%%%%%%%%%%%%% %
-% % % %         % Get into block vector %
-% % % %         % %%%%%%%%%%%%%%%%%%%%% %
-% % % %         % Seizure data
-% % % %         szOnsNBl = cell2mat(szOnsNF);
-% % % %         szOffNBl = cell2mat(szOffNF);
-% % % %         szRacBl = cell2mat(szRacF);
-% % % %         szPowBl = cell2mat(szPowF);
-% % % %         szPostIctPowBl = cell2mat(szPostIctPowF);
-% % % %         szOnsN = [szOnsN, szOnsNBl]; %#ok<AGROW>
-% % % %         szDurN = [szDurN, szOffNBl - szOnsNBl]; %#ok<AGROW>
-% % % %         szRac = [szRac, szRacBl]; %#ok<AGROW>
-% % % %         szPow = [szPow, szPowBl]; %#ok<AGROW>
-% % % %         postIctPow = [postIctPow, szPostIctPowBl]; %#ok<AGROW>
-% % % % 
-% % % %         tax(kb, 1) = binN(kb + 1); % It is kb + 1 because we want the block end not beginning. The block should be assigned the timestamp of its end because that is the moment we have had acquired all its data.
-% % % %         szValidS(kb, 1) = sum(szValidSF);
-% % % %         emgValidS(kb, 1) = sum(mean(emgValidSF, 1));
-% % % %         iedValidS(kb, 1) = sum(mean(iedValidSF, 1));
-% % % %         crcValidS(kb, 1) = sum(crcValidSF);
-% % % %         sz(kb, 1) = sum(szF)/szValidS(kb, 1); % Number of seizures in the block (normalized to the total duration of the valid signal)
-% % % %         sz(kb, 1) = sz(kb, 1)*3600*24; % Number of seizures per day (normalized to the total duration of the valid signal)
-% % % % 
-% % % %         artDurSF(szValidSF == 0) = NaN;
-% % % %         art(kb, 1) = 100*mean(sum(artDurSF, 2)./sum(szValidSF, 2), 'omitmissing'); % Convert to %
-% % % %         if isnan(art(kb, 1))
-% % % %             sz(kb, 1) = NaN;
-% % % %         end
-% % % %         if art(kb, 1) == Inf || art(kb, 1) == -Inf
-% % % %             disp('Artifact proportion infinite')
-% % % %             disp(artDurSF)
-% % % %             disp(szValidSF)
-% % % %             pause
-% % % %         end
-% % % % 
-% % % %         emgDurSF(emgValidSF == 0) = NaN;
-% % % %         emg(kb, 1) = 100*mean(sum(emgDurSF, 2)./sum(emgValidSF, 2), 1, 'omitmissing'); % Convert to %
-% % % %         if emg(kb, 1) == Inf || emg(kb, 1) == -Inf
-% % % %             disp('EMG proportion infinite')
-% % % %             disp(emgDurSF)
-% % % %             disp(emgValidSF)
-% % % %             pause
-% % % %         end
-% % % % 
-% % % %         numIedF(iedValidSF == 0) = NaN;
-% % % %         ied(kb, 1) = mean(sum(numIedF, 2)./sum(iedValidSF, 2), 1, 'omitmissing')*3600; % Convert it to IED/hour
-% % % %         if ied(kb, 1) == Inf || ied(kb, 1) == -Inf
-% % % %             disp('IED rate infinite')
-% % % %             disp(numIedF)
-% % % %             disp(iedValidSF)
-% % % %             pause
-% % % %         end
-% % % % 
-% % % %         if all(cellfun(@isempty, siFSnl))
-% % % %             continue
-% % % %         end
-% % % %         schBl = cell2mat(siFSnl);
-% % % %         schBl = mean(schBl, 2, "omitmissing");
-% % % %         pow(kb, 1) = mean(schBl(1 : 4), 1, "omitmissing")/1e6; % Convert from uV2 to mV2
-% % % %         vrn(kb, 1) = mean(schBl(5 : 8), 1, "omitmissing")/1e6; % Convert from uV2 to mV2
-% % % %         ac1(kb, 1) = mean(schBl(9 : 12), 1, "omitmissing");
-% % % %         hmw(kb, 1) = mean(schBl(13 : 16), 1, "omitmissing");
-% % % %         crc(kb, 1) = schBl(17, :);
-% % % % 
-% % % %     end
-% % % % 
-% % % %     % Join seizures too close together
-% % % %     tooEarly = find((szOnsN(2 : end) - (szOnsN(1 : end-1) + szDurN(1 : end-1))) < stg.minIsiS/24/3600);
-% % % %     szDurN(tooEarly) = (szOnsN(tooEarly + 1) + szDurN(tooEarly + 1)) - szOnsN(tooEarly);
-% % % %     szRac(tooEarly) = max([szRac(tooEarly), szRac(tooEarly + 1)]);
-% % % %     szPow(tooEarly) = mean([szPow(tooEarly); szPow(tooEarly + 1)]);
-% % % %     postIctPow(tooEarly) = postIctPow(tooEarly + 1);
-% % % %     szOnsN(tooEarly + 1) = [];
-% % % %     szDurN(tooEarly + 1) = [];
-% % % %     szRac(tooEarly + 1) = [];
-% % % %     szPow(tooEarly + 1) = [];
-% % % %     postIctPow(tooEarly + 1) = [];
-% % % %     szOnsN = szOnsN';
-% % % %     szDurS = szDurN'*24*3600; % Convert from days to seconds
-% % % %     szRac = szRac';
-% % % %     szPow = szPow'/1e6; % Convert from uV2 to mV2
-% % % %     postIctPow = postIctPow'/1e6; % Convert from uV2 to mV2
-% % % %     % szOnsStr = datestr(szOnsN); %#ok<*DATST>
-% % % % % size(szOnsN), size(szDurS), size(szRac), size(szPow), size(postIctPow), size(szOnsStr)
-% % % %     % szCharTbl = table(szOnsN, szDurS, szRac, szPow, postIctPow, szOnsStr);
-% % % %     szCharTbl = table(szOnsN, szDurS, szRac, szPow, postIctPow);
 % % % %     % szCharLabel = {'Sz time', ['Duration', 10, '(s)'], ['Severity', 10, '(Racine)'], ['Sz pwr', 10, '(mV^2)'], ['Post pwr', 10, '(mV^2)']}; % Short and tall
 % % % %     szCharLabel = {'Sz time', 'Duration (s)', 'Severity (Racine)', 'Sz pwr (mV^2)', 'Post pwr (mV^2)'};
 % % % %     siCharTbl = table(tax, szValidS, emgValidS, iedValidS, crcValidS,...

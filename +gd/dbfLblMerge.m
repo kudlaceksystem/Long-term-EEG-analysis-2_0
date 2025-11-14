@@ -15,7 +15,8 @@ function lblSet = dbfLblMerge(lblSet, minSeparationS, pointTF)
         lblSet.End(nummrg - k) = max(lblSet.End(nummrg - k), lblSet.End(nummrg - k + 1)); % We go backwards
         lblSet.End(nummrg - k + 1) = [];
     end
-    lblSet.ClassName = "Merged";
+    lblSet.ClassName = repelem("Merged", height(lblSet.ClassName), 1);
+    % % % dbfLblMerge_asdf_ = lblSet.ClassName
     if pointTF
         lblSet.End = lblSet.Start;
     end

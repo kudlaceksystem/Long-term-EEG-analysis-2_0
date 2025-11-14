@@ -1,18 +1,15 @@
-function c = dpGetCountCh(ll, clnm, invalidity, minSepS, binLimDt)
+function c = dpfGetCountCh(ll, d, binLimDt)
     % ll ........... contents of OSEL label file, i.e. sigInfo, lblDef, lblSet
-    % clnm ......... class names - which label classes from the lblSet should be counted (often just one of them)
-    % invalidity ... class names - which label classes from the lblSet should be used as a marker of invalid (contaminated signal)
-    % binLimDt ...... limits of the bin
-    % This function also implements removal of invalid portions of EEG, typically contaminated by artifacts which make
-    % it impossible to analyze the count of given phenomenon. It is hardcoded here since it is this functions
-    % responsibility to do it. It should use a function which will make sure that corresponding values will be written
-    % also in the dp.Valid table.
+    % d ............ relevant line of the dpDesc structure
+    % binLimDt ..... limits of the bin
+    % This function uses gd.dpfLblRelevantCh which also implements removal of invalid portions of EEG, typically contaminated by artifacts which make
+    % it impossible to analyze the count of given phenomenon.
     numch = height(ll.sigInfo); % Number of channels
-    pointTF = ~(any(ll.lblDef.LabelType(ismember(ll.lblDef.ClassName, clnm)) == "roi"));
+    pointTF = ~(any(ll.lblDef.LabelType(ismember(ll.lblDef.ClassName, d.MainLbl)) == "roi"));
     c = NaN(1, numch);
     for kch = 1 : numch
-        lblSetRelevantCh = gd.dpLblRelevantCh(ll, clnm, invalidity, binLimDt, kch);
-        lblSetRelevantCh = gd.dbLblMerge(lblSetRelevantCh, minSepS, pointTF);
+        lblSetRelevantCh = gd.dpfLblRelevantCh(ll, d, binLimDt, kch);
+        lblSetRelevantCh = gd.dbfLblMerge(lblSetRelevantCh, d.MinSepS, pointTF);
         c(1, kch) = height(lblSetRelevantCh);
     end
 end
