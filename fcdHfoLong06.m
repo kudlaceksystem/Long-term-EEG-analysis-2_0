@@ -41,7 +41,6 @@ end
 % Osorio 2010: Omori law. Is the IED rate decay after seizures exponential or power-law?
 % Compute skewness
 % Analyze all Isa's signal features
-% Indicate subject sex in the raster plot or in the PSD and comment on catamenial epilepsy
 % Does sz rate differ between males and females? Any other differences? Is there estral cycle-related cyclicity in females?
 % Add Bohdana's mice, e.g. 867
 % Sleep analysis (CVUT student?)
@@ -9797,6 +9796,8 @@ end
 % FINISHED Show longer peri-seizure data (maybe 3 days)
 % FINISHED Fix the bugs in plotting long peri-seizure data
 % FINISHED Sort out units of slopes
+% FINISHED % Indicate subject sex in the raster plot or in the PSD and comment on catamenial epilepsy
+
 
 % MAYBE LATER Plot signal characteristics under the trends
 % MAYBE LATER Convert char arrays to strings??? Not sure what would be the advantage.
