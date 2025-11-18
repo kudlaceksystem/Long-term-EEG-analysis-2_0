@@ -50,7 +50,7 @@ Different characteristics may require different fields.
 If a characteristic does not require certain field which is needed for other characteristics, just do not initialize it.
 Matlab will automatically initialize it with some default value, which will be, however, ignored by the rest of the program.
 ##### Example
-- dsDesc.Name = ["Seizure; Drink"]
+dsDesc.Name = ["Seizure; Drink"]
 
 % It is often useful to declare some of the variables in advance when they are the same in many elements of the structure array.
 
