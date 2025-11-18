@@ -1,20 +1,43 @@
 # ALPACA Analyzer of long-term profiles and circadian arrangement
 
-I started implementing it in fcdHfoLong04.m. We may rename the function afterwards.
-I am also splitting the whole program into multiple files, some functions are in +getData already.
-More folders are likely to appear. Now working on the getData function, rewriting it so that it is general.
+Use fcdHfoLong05.m. We may rename the function to ALPACA once it can plot at least one figure :-)
+
+I am also splitting the whole program into multiple files, some functions are in +gd already.
+
+The getData function is now finished for the work with label files. If some characteristic needs loading the signal files we have to implement it. It
+is prepared but not finished.
+
 I am also changing from datenum to datetime since Matlab recommends it.
+
+## General naming conventions
+I use the following naming conventions. I suggest we all follow them in this program or change them (I am open to discussion).
+- In agreement with Matlab convention, variable names start with lower case. In case of a multi-word variable name, I use camel case.
+- Field names in structures and column names in tables may start with capitals.
+- In the following cases, I do not use camel case:
+    - Iteration variable starts with k. E.g. kch ... iteration over channels, kf ... iteration over files, k ... just iteration over anything.
+    - num... stands for number of ... . Typically numbin ... number of bins, numch ... number of channels.
+    - Similarly ...len stands for ... length, such as binlen ... bin length.
+    - ...p stands for ... path, e.g. lblp ... label path (e.g. "\\neurodata\Lab Neurophysiology root\Mouse01\"). Caution: As of now, we sometimes use the "\" at the end and sometimes not. We should standardize this one or the other way. Which one do you prefer?
+    - ...n stands for ... name, e.g. lbln ... label name (e.g. "Mouse01-241224_200000-lbl3.mat")
+    - ...pn stands for ... path and name (e.g. "\\neurodata\Lab Neurophysiology root\Mouse01\Mouse01-241224_200000-lbl3.mat")
+- Signal is usually abbreviated snl except for some old compatibility requirements (sig could cause confusion with signum function)
+- Suffixes may indicate data class
+    - N .... datenum
+    - Dt ... datetime
+    - Du ... duration
+    - TF ... true of false, i.e. logical
 
 ## getData
 The function getData creates three variables: subjectInfo, ds, dp.
-
 ### Variables
 #### subjectInfo
-Structure containing subject name (code), date of birth, and start and end of the analyzed period.
+Structure containing subject name (code), date of birth, and start and end of the analyzed period. Subject name is a string, others are datetime objects.
 #### ds
-Data for stem. These data will be shown by the stem type of graph. Structure containing dynamically named fields according to what is analyzed. Each field contains a table. In the table, each row belongs to one event, each column to one characteristic of the event. The first column will always be the onset time of the event in datenum.
+Data for stem. These data will be shown by the stem type of graph. Structure containing dynamically named fields according to what is analyzed.
+Each field contains a table. In the table, each row belongs to one event, each column to one characteristic of the event.
+The first column should always be the onset time of the event in datetime.
 ##### Example
-- ds.Seizure ... table where the first column is "onsN" (onset, N indicates datenum format), then there could be columns like "durS" (duration in seconds), "pow" (signal power), etc.
+- ds.Seizure ... table where the first column is "onsDt" (onset, Dt indicates datetime format), then there could be columns like "durDu" (duration in seconds), "pow" (signal power), etc.
 - ds.Drink ... columns could be "onsN", "durS", "volM" (volume drank in milliliters)
 #### dp
 Data for plot. These data will be plotted by line graphs. The data were analyzed in time bins (windows, blocks), e.g. 1-hour bins. The structure has 3 fields, each containing a table.

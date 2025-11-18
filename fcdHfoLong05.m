@@ -265,9 +265,9 @@ setFormat; % Set plot colors etc.
 dobTable = getSubjectList('Video-EEG data.xlsx'); % Get list of subjects including their date of birth
 if analyzeIndividualSubjects % If you have all the subject data in RAM, you may want to skip loading individual subjects
     for ksubj = 1 : stg.numSubj
-        lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}];
-        snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Taking "EMG not removed" because the contaminated data are removed later
-        [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
+        lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}]; % Get label path
+        snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
+        [subjInfo, ds, dp] = getData(lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
         [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, szCharTbl, siCharTbl, ksubj);
         subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
         
@@ -459,9 +459,11 @@ end
 function [subjInfo, ds, dp] = getData(lblp, snlp, dobTable, ksubj, subjNmOrig)
     % dsDesc ........ data to stem description
     % dpDesc ........ data to plot description
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This will be in at the top in the control center
-dsDesc.Name = "Seizure"; % Types of tables that will be created (possibly, it could be all in one table).
+% Some of the fields are not needed with some structure subscripts, try commenting them out
+dsDesc.Name = "Seizure"; % Types of tables that will be created. Typically, each table belongs to one type of event (e.g. seizure, sleep epoch, some behavioral event)
 exLblAn = [];
 minSepSzS = 60;
 d(1).VarName    = "OnsDt";
@@ -493,7 +495,7 @@ d(3).PlotTitle  = "Seizure signal power";
 d(3).YAxisLabel = "Sz power (a.u.)";
 dsDesc.(dsDesc.Name(1)) = d;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-dpDesc.Name = "Ied"; % Types of tables that will be created (possibly, it could be all in one table).
+dpDesc.Name = "Ied"; % Tables that will be created. Typically, each table belongs to one characteristic of signal (e.g. IED rate, mean IED amplitude, signal power, delta/theta ratio, etc.)
 exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
 exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
 minSepIedS = 0.1;
