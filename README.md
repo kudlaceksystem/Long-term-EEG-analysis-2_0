@@ -51,36 +51,67 @@ If a characteristic does not require certain field which is needed for other cha
 Matlab will automatically initialize it with some default value, which will be, however, ignored by the rest of the program.
 ##### Example
 - dsDesc.Name = ["Seizure; Drink"]
+
 % It is often useful to declare some of the variables in advance when they are the same in many elements of the structure array.
+
 mainLbl = ["Seizure", "seizure", "SEIZURE", "S", "s"]; % Names of the main labels to analyze (here any name for a seizure label class)
+
 exLblAn = ["Noise", "Artifact"]; % Labels to exclude in all channels if present in any.
+
 minSepSzS = 60; % Minimum separation of seizures in seconds
+
 dsDesc.Seizure.VarName    = "OnsDt"; % Variable name, i.e. name of the characteristic. Here onset in datetime.
+
 dsDesc.Seizure.VarType    = "datetime"; % Variable type (i.e. Matlab class). We may consider using the word class instead of type but it could be confused the the label class of OSEL labels.
+
 dsDesc.Seizure(1).CalcFcn    = "gd.dsfGetOnsDt"; % Calculating function. Name of the function which will be called to calculate the data. The function may be in a +folder.
+
 dsDesc.Seizure(1).SrcData    = "Lbl"; % Is the data computed from label files, signal files or both? Permitted values are "Lbl", "Snl" or "LblSnl".
+
 dsDesc.Seizure(1).MainLbl    = mainLbl; % See the declaration above
+
 dsDesc.Seizure(1).ExLblAn    = exLblAn; % See the declaration above 
+
 dsDesc.Seizure(1).MinSepS    = minSepSzS; % See the declaration above
+
 dsDesc.Seizure(1).PlotTitle  = "Seizure occurrence"; % Title used in the final plots
+
 dsDesc.Seizure(1).YAxisLabel = ""; % y-axis label used in the final plots (should include units, btw units should be in parentheses and not brackets)
+
 dsDesc.Seizure(2).VarName    = "DurDu";
+
 dsDesc.Seizure(2).VarType    = "duration";
+
 dsDesc.Seizure(2).CalcFcn    = "gd.dsfGetDurDu";
+
 dsDesc.Seizure(2).SrcData    = "Lbl";
+
 dsDesc.Seizure(2).MainLbl    = mainLbl;
+
 dsDesc.Seizure(2).ExLblAn    = exLblAn;
+
 dsDesc.Seizure(2).MinSepS    = minSepSzS;
+
 dsDesc.Seizure(2).PlotTitle  = "Seizure duration";
+
 dsDesc.Seizure(2).YAxisLabel = "Sz dur (s)";
+
 dsDesc.Seizure(3).VarName    = "Pow";
+
 dsDesc.Seizure(3).VarType    = "double";
+
 dsDesc.Seizure(3).CalcFcn    = "gd.dsfGetPow";
+
 dsDesc.Seizure(3).SrcData    = "Lbl";
+
 dsDesc.Seizure(3).MainLbl    = mainLbl;
+
 dsDesc.Seizure(3).ExLblAn    = exLblAn;
+
 dsDesc.Seizure(3).MinSepS    = minSepSzS;
+
 dsDesc.Seizure(3).PlotTitle  = "Seizure signal power";
+
 dsDesc.Seizure(3).YAxisLabel = "Sz power (a.u.)";
 
 ... and similarly for the Drink field.
