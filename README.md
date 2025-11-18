@@ -1,6 +1,6 @@
 # ALPACA Analyzer of long-term profiles and circadian arrangement
 
-Use fcdHfoLong05.m. We may rename the function to ALPACA once it can plot at least one figure :-)
+Use fcdHfoLong06.m. We may rename the function to ALPACA once it can plot at least one figure :-)
 
 I am also splitting the whole program into multiple files, some functions are in +gd already.
 
@@ -33,6 +33,11 @@ I use the following naming conventions. I suggest we all follow them in this pro
 
 ## getData
 The function getData creates three variables: subjectInfo, ds, dp.
+
+The philosophy is to first get all the data that might be relevant in the ds and dp sturctures using dsDesc and dpDesc.
+The data might be saved so that we do not have to load all the individual data files again and again when just improving analyses and figures.
+Then, there will be some figureDesc structure, which will describe the figures. Figures may combine data from both ds and dp.
+
 ### Input
 #### dsDesc
 Data to stem description. Structure.
