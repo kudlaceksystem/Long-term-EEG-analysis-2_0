@@ -535,8 +535,7 @@ d(3).YAxisLabel = "IEDs/hour";
 dpDesc.(dpDesc.Name(1)) = d;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % Get sz data and signal characteristics including IED rate, amount of EMG artifacts and critical slowing markers.
-    % IEDs and critical slowing are first treated for each channel separately and then the IED rate is averaged over channels.
+    % Get sz data and signal characteristics such as IED rate, amount of EMG artifacts and critical slowing markers.
     global stg
     
     % If the data for this subject already exist load it
@@ -558,6 +557,8 @@ dpDesc.(dpDesc.Name(1)) = d;
         subjInfo.sex = dobTable{ksubj, 3};
         return
     end
+
+    % Find out if we will need signal data (as of now, the function is prepared for labels only)
     for knm = 1 : length(dsDesc.Name)
         lblOnlyTF(knm) = all([dsDesc.(dsDesc.Name(knm)).SrcData] == "Lbl");
     end
@@ -583,70 +584,66 @@ dpDesc.(dpDesc.Name(1)) = d;
         ds.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
     end
 
-    % % Loop over label files
-    % fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
-    % for klbl = 1 : numel(lblpn)
-    %     % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
-    %     fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
-    %     ll = load(lblpn{klbl});
-    %     for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
-    %         nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
-    %         dd = dsDesc.(nm); % Data description (only for this phenomenon)
-    %         % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
-    %         numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows
-    %         newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
-    %         for kchar = 1 : size(dsDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
-    %             d = dd(kchar);
-    %             funcHandle = str2func(d.CalcFcn);
-    %             colnm = d.VarName; % Column name
-    %             switch d.SrcData
-    %                 case "Lbl"
-    %                     newRows.(colnm) = funcHandle(ll, d);
-    %                 case "Snl"
-    %                     newRows.(colnm) = funcHandle(ls, d);
-    %                 case "LblSnl"
-    %                     newRows.(colnm) = funcHandle(ll, ls, d);
-    %             end
-    %             newRows.(colnm) = funcHandle(ll, d);
-    %         end
-    %         ds.(nm) = [ds.(nm); newRows];
-    %     end
-    % end
+    % Loop over label files
+    fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+    for klbl = 1 : numel(lblpn)
+        % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b') % This can delete the previous line
+        fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
+        fprintf('\n')
+        ll = load(lblpn{klbl}); % Loaded label. All three variables from the label file will become fields of the ll structure
+        for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
+            nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
+            dd = dsDesc.(nm); % Data description (only for this phenomenon)
+            % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
+            numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows (e.g. number of seizures in this label file)
+            newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialization of the table.
+            for kchar = 1 : size(dsDesc.(nm), 2) % Over characteristics. Fill in new rows for each characteristic of the phenomenon
+                d = dd(kchar); % Description of the current characteristic.
+                funcHandle = str2func(d.CalcFcn); % Get function handle from the name of the function.
+                colnm = d.VarName; % Column name
+                switch d.SrcData % As of now, we probably do not have the sl ready. The loading of sl needs to be finished (or at least tested)
+                    case "Lbl"
+                        newRows.(colnm) = funcHandle(ll, d); % The function must accept the loaded label and characteristic description structure.
+                    case "Snl"
+                        newRows.(colnm) = funcHandle(ls, d);
+                    case "LblSnl"
+                        newRows.(colnm) = funcHandle(ll, ls, d);
+                end
+                newRows.(colnm) = funcHandle(ll, d);
+            end
+            ds.(nm) = [ds.(nm); newRows];
+        end
+    end
 
     %% Data to plot
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% This will be in at the top in the control center
-
-
+    % Find out if we will need the signal files
     for knm = 1 : length(dpDesc.Name)
         lblOnlyTF(knm) = all([dpDesc.(dpDesc.Name(knm)).SrcData] == "Lbl");
     end
     lblOnlyTF = all(lblOnlyTF);
-
-
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+    
     % Split the time into bins
     binDt = (anStartDt : seconds(stg.dpBinLenS) : anEndDt)'; % Borders of bins in datenum
     numbin = numel(binDt) - 1; % Number of bins
     dp.tax = binDt(2 : end);  % Each bin should be assigned the timestamp of its end because that is the moment we have had acquired (and processed) all data of the block.
-
+    
     % Initialize the table in a field of the dp structure
     for kn = 1 : numel(dpDesc.Name)
         nm = dpDesc.Name(kn); % Name of the phenomenon to analyze
         dd = dpDesc.(nm); % Data description (only for this phenomenon)
-        dp.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
+        dp.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialize with zero number of rows
     end
     
-    % Loop over time bins
+    % Loop over time bins. For each bin, it will load all the files it needs and another loop.
     fprintf(['\nBin No. ', num2str(0, '%06d'), '/', num2str(numbin, '%06d'), '\n'])
-    loadedFilepn = "";
+    loadedLblpn = ""; % Keep track of the currently loaded label file
+    loadedSnlpn = ""; % Keep track of the currently loaded signal file
     for kb = 1 : numbin % Loop over time blocks
         % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
         fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(numbin, '%06d'), '\n'])
         tol = seconds(0.001); % Tolerance in seconds
         lblfSub = find(lblDt > binDt(kb) + tol, 1, 'first') - 1 : find(lblDt <= binDt(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
+        % Check if the label and signal files correspond
         if ~dpLblOnlyTF
             snlfSub = find(snlDt > binDt(kb) + tol, 1, 'first') - 1 : find(snlDt <= binDt(kb + 1), 1, 'last'); % Subscripts of signal file relevant for this bin
             % Check if we have the same label files and signal files
@@ -662,19 +659,20 @@ dpDesc.(dpDesc.Name(1)) = d;
                 pause
             end
         end
-        for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
-            % Initialize a new table which will be filled in and appended to the dp.(dpDesc.Name(kn)).
-            nm = dpDesc.Name(kn);
-            dd = dpDesc.(nm);
-            numRows = numel(lblfSub); % Number of rows
-            binTables.(nm) = table('Size', [numRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Table of data from all files belonging to this time bin
-        end
 
+        % Initialize a new table which will be filled in and appended to the dp.(dpDesc.Name(kn)).
+        for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
+            nm = dpDesc.Name(kn); % Name of the current phenomenon
+            dd = dpDesc.(nm); % Structure with the description of the computations on the current phenomenon
+            numRows = numel(lblfSub); % Number of rows
+            binTables.(nm) = table('Size', [numRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Table of data from all files belonging to current time bin
+        end
+        
         % Loop over files within this block
         for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
-            if loadedFilepn ~= string(lblpn{lblfSub(klf)})
+            if loadedLblpn ~= string(lblpn{lblfSub(klf)})
                 ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblDef', 'lblSet');
-                loadedFilepn = string(lblpn{lblfSub(klf)});
+                loadedLblpn = string(lblpn{lblfSub(klf)});
             end
             if ~dpLblOnlyTF
                 load(snlpn{snlfSub(klf)}, 'sigTbl')

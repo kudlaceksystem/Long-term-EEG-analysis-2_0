@@ -26,15 +26,65 @@ I use the following naming conventions. I suggest we all follow them in this pro
     - Dt ... datetime
     - Du ... duration
     - TF ... true of false, i.e. logical
+    - S .... seconds
+    - Ind .. index (logical)
+    - Sub .. subscript (sequential number)
 
 ## getData
 The function getData creates three variables: subjectInfo, ds, dp.
-### Variables
+### Input
+#### dsDesc
+Data to stem description. Structure.
+The first field is "Name" and contains a column vector or strings indicating names of all other fields,
+i.e. names of the analyzed phenomena (e.g. seizures, epochs of drinking).
+The other fields contain structure arrays.
+The length of the structure array is given by the number of parameters of the phenomenon that we may wish to analyze, e.g. onset time, duration, severity.
+The structure will have several fields with information required for the computation of given characteristic, see the commented example below.
+Different characteristics may require different fields.
+If a characteristic does not require certain field which is needed for other characteristics, just do not initialize it.
+Matlab will automatically initialize it with some default value, which will be, however, ignored by the rest of the program.
+##### Example
+- dsDesc.Name = ["Seizure; Drink"]
+% It is often useful to declare some of the variables in advance when they are the same in many elements of the structure array.
+mainLbl = ["Seizure", "seizure", "SEIZURE", "S", "s"]; % Names of the main labels to analyze (here any name for a seizure label class)
+exLblAn = ["Noise", "Artifact"]; % Labels to exclude in all channels if present in any.
+minSepSzS = 60; % Minimum separation of seizures in seconds
+dsDesc.Seizure.VarName    = "OnsDt"; % Variable name, i.e. name of the characteristic. Here onset in datetime.
+dsDesc.Seizure.VarType    = "datetime"; % Variable type (i.e. Matlab class). We may consider using the word class instead of type but it could be confused the the label class of OSEL labels.
+dsDesc.Seizure(1).CalcFcn    = "gd.dsfGetOnsDt"; % Calculating function. Name of the function which will be called to calculate the data. The function may be in a +folder.
+dsDesc.Seizure(1).SrcData    = "Lbl"; % Is the data computed from label files, signal files or both? Permitted values are "Lbl", "Snl" or "LblSnl".
+dsDesc.Seizure(1).MainLbl    = mainLbl; % See the declaration above
+dsDesc.Seizure(1).ExLblAn    = exLblAn; % See the declaration above 
+dsDesc.Seizure(1).MinSepS    = minSepSzS; % See the declaration above
+dsDesc.Seizure(1).PlotTitle  = "Seizure occurrence"; % Title used in the final plots
+dsDesc.Seizure(1).YAxisLabel = ""; % y-axis label used in the final plots (should include units, btw units should be in parentheses and not brackets)
+dsDesc.Seizure(2).VarName    = "DurDu";
+dsDesc.Seizure(2).VarType    = "duration";
+dsDesc.Seizure(2).CalcFcn    = "gd.dsfGetDurDu";
+dsDesc.Seizure(2).SrcData    = "Lbl";
+dsDesc.Seizure(2).MainLbl    = mainLbl;
+dsDesc.Seizure(2).ExLblAn    = exLblAn;
+dsDesc.Seizure(2).MinSepS    = minSepSzS;
+dsDesc.Seizure(2).PlotTitle  = "Seizure duration";
+dsDesc.Seizure(2).YAxisLabel = "Sz dur (s)";
+dsDesc.Seizure(3).VarName    = "Pow";
+dsDesc.Seizure(3).VarType    = "double";
+dsDesc.Seizure(3).CalcFcn    = "gd.dsfGetPow";
+dsDesc.Seizure(3).SrcData    = "Lbl";
+dsDesc.Seizure(3).MainLbl    = mainLbl;
+dsDesc.Seizure(3).ExLblAn    = exLblAn;
+dsDesc.Seizure(3).MinSepS    = minSepSzS;
+dsDesc.Seizure(3).PlotTitle  = "Seizure signal power";
+dsDesc.Seizure(3).YAxisLabel = "Sz power (a.u.)";
+
+... and similarly for the Drink field.
+
+### Output
 #### subjectInfo
 Structure containing subject name (code), date of birth, and start and end of the analyzed period. Subject name is a string, others are datetime objects.
 #### ds
 Data for stem. These data will be shown by the stem type of graph. Structure containing dynamically named fields according to what is analyzed.
-Each field contains a table. In the table, each row belongs to one event, each column to one characteristic of the event.
+In each table, each row belongs to one event, each column to one characteristic of the event.
 The first column should always be the onset time of the event in datetime.
 ##### Example
 - ds.Seizure ... table where the first column is "onsDt" (onset, Dt indicates datetime format), then there could be columns like "durDu" (duration in seconds), "pow" (signal power), etc.
@@ -58,14 +108,15 @@ The computation of the characteristic should be implemented for each pattern
 (e.g. mean, median or maximum across all realization in given bin).
 
 ### Computation
-There are two main parts of the function.
-The first fills in the ds.
+There are two main parts of the function. The first fills in the ds.
 It loads label files sequentially and extracts data.
 The other part fills in dp.
 This one splits time into bins and loads the files that it needs.
+The code is vastly commented so no description is needed here.
+It uses a functions from the +gd folder.
 
-#### +getData folder
-+getData folder contains functions called from within getData function. The function names should follow the following convention:
+#### +gd folder
++gd (stand for getData) folder contains functions called from within getData function. The function names should follow the following convention:
 - Functions for computations related to stem data should have the prefix ds
 - Functions for computations related to plot data should have the prefix dp
 - Functions for computations on file basis should have the prefix f
@@ -74,25 +125,4 @@ This one splits time into bins and loads the files that it needs.
 - Functions directly called by getData function should be named ..Get...
 - Functions for manipulation of labels not directly called by getData should be named ..Lbl...
 - Functions for manipulation of signal files not directly called by getData should be named ..Snl...
-
-### Input
-Input to getData function includes: dsName, dsDescr.
-
-#### dsDesc
-First, dsDesc.Name must be defined.
-It is a A string column vector containing the names of the event types (often OSEL label classes).
-The other fields are named by the strings in dsDesc.Name.
-Each field contains a 2D cell array. Each cell contains a string or a string array.
-
-Columns: Characteristics of the event (must include onsN, i.e. onset in datenum).
-
-Rows:
-1. Characteristic name
-2. Characteristic data type (double, logical, ...)
-3. Name of the function which will calculate the values.
-4. Name of the label classes which will be used to get the values.
-5. Name of the label classes which will be used to ignore invalid EEG signal (typically contaminated by artifacts).
-
-
-
 
