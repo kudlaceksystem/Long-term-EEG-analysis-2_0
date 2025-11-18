@@ -670,13 +670,15 @@ dpDesc.(dpDesc.Name(1)) = d;
         
         % Loop over files within this block
         for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
-            if loadedLblpn ~= string(lblpn{lblfSub(klf)})
+            if loadedLblpn ~= string(lblpn{lblfSub(klf)}) % Check if the required data file is already loaded. If not, load it.
                 ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblDef', 'lblSet');
-                loadedLblpn = string(lblpn{lblfSub(klf)});
+                loadedLblpn = string(lblpn{lblfSub(klf)}); % Update which file is currently loaded.
             end
+            % If signal data are needed, load them and check if te label and signal files correspond
             if ~dpLblOnlyTF
                 load(snlpn{snlfSub(klf)}, 'sigTbl')
                 snlChToProcessSub = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match')); % Subscripts of signal channels to be processed (e.g. we may want do ignore accelerometer channels)
+                % Check if signal and label correspond
                 sigTbl = sigTbl(snlChToProcessSub, :);
                 sigInfo = sigInfo(snlChToProcessSub, :);
                 if ~all(sigInfo.Subject == subjNm)
@@ -686,7 +688,8 @@ dpDesc.(dpDesc.Name(1)) = d;
                     error('_jk Inconsistency of subjects in signal file.')
                 end
                 % TODO001 Sometimes, there is a mismatch between time extent of the signal and label file. In the future, fix the data files, so that this does
-                % not happen.
+                % not happen. This is probably an issue in the creation of the data files, not of this code. Possibly make some utility to check and
+                % fix the files.
                 if abs(seconds(min(sigInfo.SigStart) - min(sigTbl.SigStart))) > 10 || abs(seconds(min(sigInfo.SigEnd) - min(sigTbl.SigEnd))) > 10 % If start or end times of signal and label file differ by more than 1 s
                     disp(['lblpn ', lblpn{lblfSub(klf)}, 10])
                     disp(['snlpn ', snlpn{snlfSub(klf)}, 10])
@@ -696,7 +699,7 @@ dpDesc.(dpDesc.Name(1)) = d;
                 end
                 sigInfo.SigStart = sigTbl.SigStart; % The signal file's SigStart will be used
                 sigInfo.SigEnd = sigTbl.SigEnd; % The signal file's SigEnd will be used
-    
+                
                 % Check if block start is after the end of given file. I believe, this should never happend unless there is a gap in the recording.
                 tol = seconds(60); % Gap of 60 seconds will be tolerated
                 if binDt(kb) > max(ll.sigInfo.SigEnd) + tol
@@ -712,57 +715,57 @@ dpDesc.(dpDesc.Name(1)) = d;
 
             % Main calculation
             for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
-                nm = dpDesc.Name(kn);
-                dd = dpDesc.(nm);
-                % if dpDecs
+                nm = dpDesc.Name(kn); % Name of the current phenomenon
+                dd = dpDesc.(nm); % Description of all the calculations on the current phenomenon
                 for kchar = 1 : size(dpDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
-                    d = dd(kchar);
+                    d = dd(kchar); % Description of the current characteristic of the phenomenon
                     if d.CalcLvl == "file"
                         funcHandle = str2func(d.CalcFcn);
                         colnm = d.VarName; % Column name
                         numch = height(ll.sigInfo);
                         switch d.SrcData
                             case "Lbl"
+                                % In contrast to ds calculation, here we include also bin limits so that the function can disregard data not belonging to the current bin
                                 binTables.(nm).(colnm)(klf, 1 : numch) =...
-                                    funcHandle(ll, d, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                                    funcHandle(ll, d, [binDt(kb), binDt(kb+1)]);
                             case "Snl"
                                 binTables.(nm).(colnm)(klf, 1 : numch) =...
-                                    funcHandle(ls, d, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                                    funcHandle(ls, d, [binDt(kb), binDt(kb+1)]);
                             case "LblSnl"
                                 binTables.(nm).(colnm)(klf, 1 : numch) =...
-                                    funcHandle(ll, ls, d, [binDt(kb), binDt(kb+1)]); % ll is a structure containing the contents of the label file, i.e. sigInfo, lblDef, lblSet
+                                    funcHandle(ll, ls, d, [binDt(kb), binDt(kb+1)]);
                         end
                     end
                 end
             end
-        end % Over files within the block
+        end % Over files within the block. Here, we will aggregate the data from individual files, to get data for the given bin.
         for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
-            nm = dpDesc.Name(kn);
-            dd = dpDesc.(nm);
+            nm = dpDesc.Name(kn); % Name of the current phenomenon
+            dd = dpDesc.(nm); % Description of all the calculations on the current phenomenon
             for kchar = 1 : size(dpDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
-                d = dd(kchar);
+                d = dd(kchar); % Description of the current characteristic of the phenomenon
                 switch d.CalcLvl
                     case "file"
-                        if ~isempty(binTables.(nm)) % If it is not empty, just apply mean over the first dimension (columns).
+                        if ~isempty(binTables.(nm)) % If it is not empty, sum over the first dimension (columns).
                             binTableFinal.(nm) = sum(binTables.(nm), 1);
-                        else % If it is empty, the function mean would create one NaN in each cell of the table, which would be inconsistent with the dimensions of other cells if we process more than one channel
+                        else % If it is empty, the function sum would create one NaN in each cell of the table, which would be inconsistent with the dimensions of other cells if we process more than one channel
                             for kcol = 1 : width(dp.(nm))
                                 nn{1, kcol} = NaN(1, numel(dp.(nm){1, kcol})); %#ok<AGROW> % Create a cell array of NaNs to plug it in the binTables.(nm)
                             end
-                            binTableFinal.(nm)(end, :) = nn; % Plug in the created NaN cells into the table. The NaNs have to be there because the row exists in the time axis dp.tax
+                            binTableFinal.(nm)(end, :) = nn; % Plug in the created NaN cells into the table. The NaNs have to be there because the row exists in the time axis dp.tax.
                         end
                     case "bin"
                         funcHandle = str2func(d.CalcFcn);
                         colnm = d.VarName; % Column name
-                        numch = height(ll.sigInfo);
-                        binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables, nm);
+                        numch = height(ll.sigInfo); % Number of channels
+                        binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables, nm); % Each cell of the table can contain either a scalar or a row vector (if there are more channels)
                 end
             end
-            dp.(nm) = [dp.(nm); binTableFinal.(nm)]; % Concatenate
+            dp.(nm) = [dp.(nm); binTableFinal.(nm)]; % The binTableFinal has one row containg the data for current time bin. Append it to the main table dp.(nm)
         end
     end
-
-
+    
+    %% Get subject info
     subjInfo.subjNm = subjNm;
     subjInfo.subjNmOrig = subjInfo.subjNm;
     subjInfo.anStartDt = anStartDt;
