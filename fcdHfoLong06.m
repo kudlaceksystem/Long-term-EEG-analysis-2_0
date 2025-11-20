@@ -948,37 +948,50 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
     end
     eventBelongsToClust = zeros(size(onsDt)); % Does the seizure belong to any cluster?
     intMult = cld.InterclusterMultiplier; % Intercluster period must be intMult times longer than the longest ISI within the cluster
-    minNumSz = cld.MinNumInClus; % Minimum number of seizures in the cluster
+    minNumEv = cld.MinNumInClus; % Minimum number of seizures in the cluster
     numev = length(onsDt); % Number of events (including the artificially added events at the beginning and end of the onsDt vector
     evGrSt = 1; % Event group start index.
-    while evGrSt <= numev - minNumSz
-        evGrDt = onsDt(evGrSt : evGrSt + minNumSz); % Event group. At this moment, the shortest which could be considered a cluster. Due to the added dummy event at the beginning of szOnsN, the group index needs to be higher by 1 than it would have to be in ds.(*).OnsDt to point at the same event.
+    while evGrSt <= numev - minNumEv
+        evGrDt = onsDt(evGrSt : evGrSt + minNumEv); % Event group. At this moment, the shortest which could be considered a cluster. Due to the added dummy event at the beginning of szOnsN, the group index needs to be higher by 1 than it would have to be in ds.(*).OnsDt to point at the same event.
         ieiGrDu = diff(evGrDt); % Inter-event intervals (IEIs) within the group in duration class
         % If the first IEI in the group is too short to be intercluster interval (ICI) or any of the within-cluster IEI
         % is > stg.MaxWithinClusIeiD, increase the evGrSt and try again with another group. IMPORTANT: the dummy events
         % at the start and end can make a big difference.
         if ieiGrDu(1) < intMult*max(ieiGrDu(2 : end)) || any(ieiGrDu(2 : end) > cld.MaxWithinClusIeiD)
             evGrSt = evGrSt + 1; % Try another group starting on the next seizure
-        else % The first ISI in the group is long enough to be considered as ICI. Let's try if there is an ICI also after the seizure group
-            addEvTF = true; % Continue adding more seizures?
-            numAddSz = 1; % Number of sz to be added to the original group
+        else % The first IEI in the group is long enough to be considered as ICI. Let's try if there is an ICI also after the seizure group
+            addEvTF = true; % Continue adding more events?
+            numAddEv = 1; % Number of events to be added to the original group. It increases later.
             while addEvTF
-                evGrDt = szOnsN(evGrSt : evGrSt + minNumSz + numAddSz); % Add a seizure
-                ieiGrDu = diff(evGrDt); % Get ISI of the bigger seizure group
-                if intMult*max(ieiGrDu(2 : end)) <= ieiGrDu(1) && ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1)) % If the within-cluster IEIs are not too long, the ICI (first IEI) is still considered ICI and last IEI is not too long compared to within-cluster IEI. 
-                    numAddSz = numAddSz + 1; % Let's add one more seizure
-                    if evGrSt + minNumSz + numAddSz > numev % But if there is no more seizure, stop adding seizures and save the cluster in clust
-                        kc = kc + 1;
-                        eventBelongsToClust(evGrSt + 1 : evGrSt + minNumSz + numAddSz - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumSz + numAddSz - 1) + 1;
-                        clust(kc).szOnsN = szOnsN(evGrSt + 1 : evGrSt + minNumSz + numAddSz - 1); %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI
-                        clust(kc).szCharTbl = szCharTbl(evGrSt : evGrSt + minNumSz + numAddSz - 2, :); %#ok<AGROW> % ??? Why not szGrSt + 1 ???
-                        clust(kc).ksubj = ksubj; %#ok<AGROW>
-                        clust(kc).subjclustn = kc; %#ok<AGROW>
-                        clust(kc).subjNm = subjInfo.subject; %#ok<AGROW>
-                        clust(kc).anStartN = subjInfo.anStartN; %#ok<AGROW>
-                        clust(kc).anEndN = subjInfo.anEndN; %#ok<AGROW>
-                        evGrSt = evGrSt + 1;
-                        addEvTF = false; % Terminate the inner while loop, i.e. stop adding seizures to this group.
+                evGrDt = onsDt(evGrSt : evGrSt + minNumEv + numAddEv); % Add an event
+                ieiGrDu = diff(evGrDt); % Get IEI of the, now bigger, event group
+                % If the within-cluster IEIs are not too long (the first IEI is still considered ICI) AND last IEI is not too long compared to within-cluster IEI
+                % add more events.
+                if intMult*max(ieiGrDu(2 : end)) <= ieiGrDu(1) && ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1))
+                    numAddEv = numAddEv + 1; % Let's add one more event
+                    if evGrSt + minNumEv + numAddEv > numev % But if there is no more event, stop adding events and check if we have a cluster
+                        evGrDt7linesAbove = evGrDt;
+                        evGrDt = onsDt(evGrSt : evGrSt + minNumEv + numAddEv - 1); % Add an event
+                        if evGrDt7linesAbove ~= evGrDt; error('_jk Logical error in the code. evGrDt7linesAbove should be the same as evGrDt. Solve it.'); end
+                        ieiGrDu = diff(evGrDt); % Get IEI
+                        if ieiGrDu(1) > ieiGrDu(2 : end - 1) && ieiGrDu(end) > ieiGrDu(2 : end - 1)
+                            kc = kc + 1;
+                            eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) + 1; % Increase the number by 1. The number will indicate level of nestedness of the cluster to which the event belongs.
+                            clust(kc).OnsDt = onsDt(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI
+                            clust(kc).ds = ds.(cld.Name)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); %#ok<AGROW> % Note, that here we are subscripting into the original table of events with no dummy event at the beginning.
+                            clust(kc).ksubj = ksubj; %#ok<AGROW>
+                            clust(kc).subjclustn = kc; %#ok<AGROW>
+                            clust(kc).subjNm = subjInfo.subject; %#ok<AGROW>
+                            clust(kc).anStartDt = subjInfo.anStartDt; %#ok<AGROW>
+                            clust(kc).anEndDt = subjInfo.anEndDt; %#ok<AGROW>
+                            evGrSt = evGrSt + 1; % Here we could maybe plug in e.g. numev to stop the outer loop immediatelly
+                            addEvTF = false; % Terminate the inner while loop, i.e. stop adding events to this group
+                        else % Remove this when debugging is finished
+                            if cld.ExclClAtEdges
+                                disp('Last cluster not separated from the anEndDt enough. The cluster not added.')
+                                pause
+                            end
+                        end
                     end
                 else % The added seizure is after too long ISI to be considered part of the cluster.
                     if ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1)) % EITHER the last ISI is not long enough to be considered terminating ICI. So this group will never be a cluster.
@@ -986,16 +999,16 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
                         evGrSt = evGrSt + 1; % Let's try with a new sz group
                     else % OR it is long enough. So seizures (2 : end-1) of the group form a cluster separated by at least intMult*max(intraClusterISI) on both sides
                         kc = kc + 1;
-                        eventBelongsToClust(evGrSt + 1 : evGrSt + minNumSz + numAddSz - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumSz + numAddSz - 1) + 1;
-                        clust(kc).szOnsN = szOnsN(evGrSt + 1 : evGrSt + minNumSz + numAddSz - 1); %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI. szOnsN has added 0 at the beginning.
-                        clust(kc).szCharTbl = szCharTbl(evGrSt : evGrSt + minNumSz + numAddSz - 2, :); %#ok<AGROW> % Does not have the added zero, hence the different indices
+                        eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) + 1;
+                        clust(kc).szOnsN = szOnsN(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI. szOnsN has added 0 at the beginning.
+                        clust(kc).szCharTbl = szCharTbl(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); %#ok<AGROW> % Does not have the added zero, hence the different indices
                         clust(kc).ksubj = ksubj; %#ok<AGROW>
                         clust(kc).subjclustn = kc; %#ok<AGROW>
                         clust(kc).subjNm = subjInfo.subjNm; %#ok<AGROW>
                         clust(kc).anStartN = subjInfo.anStartN; %#ok<AGROW>
                         clust(kc).anEndN = subjInfo.anEndN; %#ok<AGROW>
-                        if evGrSt + minNumSz + numAddSz < numev % If more seizures exist
-                            numAddSz = numAddSz + 1; % Add one more seizure to the group so if there are multiple clusters starting with the same seizure, they get detected.
+                        if evGrSt + minNumEv + numAddEv < numev % If more seizures exist
+                            numAddEv = numAddEv + 1; % Add one more seizure to the group so if there are multiple clusters starting with the same seizure, they get detected.
                         else
                             evGrSt = evGrSt + 1;
                             addEvTF = false; % Terminate the inner while loop, i.e. stop adding seizures to this group.
