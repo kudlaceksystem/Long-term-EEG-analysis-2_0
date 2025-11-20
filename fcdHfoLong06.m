@@ -1023,15 +1023,30 @@ eventBelongsToClust
 clust
 clust(kc).ds
 
-%% HERE I FINISHED SO FAR
-
-
+    onsDtCorrespondTF = all(clust(kc).ds.OnsDt == clust(kc).OnsDt);
+    if ~onsDtCorrespondTF
+        error('_jk OnsDt directly in clust(kc) and in clust(kc).ds do not correspond.')
+    end
+    
     % Remove too long clusters
-    clusterTooLongTF = [];
+    clusterTooLongTF = false(numel(clust), 1);
     for kc = 1 : length(clust)
-        clusterTooLongTF(kc) = clust(kc).szCharTbl.szOnsN(end) - clust(kc).szCharTbl.szOnsN(1) > stg.MaxClusterDur; %#ok<AGROW>
+        clusterTooLongTF(kc) = clust(kc).OnsDt(end) - clust(kc).szOnsDt(1) > cld.MaxClusterDur;
+        if clusterTooLongTF
+            eventBelongsToClust(onsDt == clust(kc).OnsDt) = eventBelongsToClust(onsDt == clust(kc).OnsDt) - 1;
+        end
     end
     clust = clust(~clusterTooLongTF);
+
+
+
+%% %%%%%%%%%%%%%%%%%%%%%% %%
+%% HERE I FINISHED SO FAR %%
+%% %%%%%%%%%%%%%%%%%%%%%% %%
+
+
+
+
 
     % Find significant dropouts
     significanceThresholdN = max([1/24, 1.01*stg.dpBinLenS/3600/24, min(diff(szCharTbl.szOnsN))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
