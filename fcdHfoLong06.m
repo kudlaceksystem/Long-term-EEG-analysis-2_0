@@ -946,29 +946,28 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
     else
         onsDt = [0; onsDt; years(3000)];
     end
-    eventBelongsToClust = zeros(size(onsDt)); % Does the seizure belong to any cluster?
+    eventBelongsToClust = zeros(size(onsDt)); % Does the event belong to any cluster?
     intMult = cld.InterclusterMultiplier; % Intercluster period must be intMult times longer than the longest ISI within the cluster
-    minNumEv = cld.MinNumInClus; % Minimum number of seizures in the cluster
+    minNumEv = cld.MinNumInClus; % Minimum number of events in the cluster
     numev = length(onsDt); % Number of events (including the artificially added events at the beginning and end of the onsDt vector
     evGrSt = 1; % Event group start index.
     while evGrSt <= numev - minNumEv
-        evGrDt = onsDt(evGrSt : evGrSt + minNumEv); % Event group. At this moment, the shortest which could be considered a cluster. Due to the added dummy event at the beginning of szOnsN, the group index needs to be higher by 1 than it would have to be in ds.(*).OnsDt to point at the same event.
+        evGrDt = onsDt(evGrSt : evGrSt + minNumEv); % Event group. At this moment, the shortest which could be considered a cluster. Due to the added dummy event at the beginning of OnsDt, the group index needs to be higher by 1 than it would have to be in ds.(*).OnsDt to point at the same event.
         ieiGrDu = diff(evGrDt); % Inter-event intervals (IEIs) within the group in duration class
-        % If the first IEI in the group is too short to be intercluster interval (ICI) or any of the within-cluster IEI
-        % is > stg.MaxWithinClusIeiD, increase the evGrSt and try again with another group. IMPORTANT: the dummy events
-        % at the start and end can make a big difference.
+        % If the first IEI in the group is too short to be intercluster interval (ICI) or any of the within-cluster IEI is > stg.MaxWithinClusIeiD,
+        % increase the evGrSt and try again with another group. IMPORTANT: the dummy events at the start and end can make a big difference.
         if ieiGrDu(1) < intMult*max(ieiGrDu(2 : end)) || any(ieiGrDu(2 : end) > cld.MaxWithinClusIeiD)
-            evGrSt = evGrSt + 1; % Try another group starting on the next seizure
-        else % The first IEI in the group is long enough to be considered as ICI. Let's try if there is an ICI also after the seizure group
+            evGrSt = evGrSt + 1; % Try another group starting on the next event
+        else % The first IEI in the group is long enough to be considered as ICI. Let's try if there is an ICI also after the event group
             addEvTF = true; % Continue adding more events?
             numAddEv = 1; % Number of events to be added to the original group. It increases later.
             while addEvTF
                 evGrDt = onsDt(evGrSt : evGrSt + minNumEv + numAddEv); % Add an event
                 ieiGrDu = diff(evGrDt); % Get IEI of the, now bigger, event group
                 % If the within-cluster IEIs are not too long (the first IEI is still considered ICI) AND last IEI is not too long compared to within-cluster IEI
-                % add more events.
+                % so it does not terminate the current cluster, add more events.
                 if intMult*max(ieiGrDu(2 : end)) <= ieiGrDu(1) && ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1))
-                    numAddEv = numAddEv + 1; % Let's add one more event
+                    numAddEv = numAddEv + 1; % Add one more event
                     if evGrSt + minNumEv + numAddEv > numev % But if there is no more event, stop adding events and check if we have a cluster
                         evGrDt7linesAbove = evGrDt;
                         evGrDt = onsDt(evGrSt : evGrSt + minNumEv + numAddEv - 1); % Add an event
@@ -993,25 +992,25 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
                             end
                         end
                     end
-                else % The added seizure is after too long ISI to be considered part of the cluster.
-                    if ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1)) % EITHER the last ISI is not long enough to be considered terminating ICI. So this group will never be a cluster.
-                        addEvTF = false; % Terminate the inner while loop, i.e. stop adding seizures to this group.
-                        evGrSt = evGrSt + 1; % Let's try with a new sz group
-                    else % OR it is long enough. So seizures (2 : end-1) of the group form a cluster separated by at least intMult*max(intraClusterISI) on both sides
+                else % The added event is after too long IEI so it either just disqualifies the first IEI to define the start of the cluster or it is long enough to terminate the cluster.
+                    if ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1)) % _EITHER_ the last IEI is not long enough to be considered terminating ICI. So this group will never be a cluster.
+                        addEvTF = false; % Terminate the inner while loop, i.e. stop adding events to this group.
+                        evGrSt = evGrSt + 1; % Let's try with a new event group.
+                    else % _OR_ it is long enough. So events (2 : end-1) of the group form a cluster separated by at least intMult*max(intraClusterISI) on both sides
                         kc = kc + 1;
                         eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) + 1;
-                        clust(kc).szOnsN = szOnsN(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI. szOnsN has added 0 at the beginning.
-                        clust(kc).szCharTbl = szCharTbl(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); %#ok<AGROW> % Does not have the added zero, hence the different indices
+                        clust(kc).OnsDt = onsDt(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI. onsN has a dummy at the beginning.
+                        clust(kc).ds = ds.(cld.Name)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); %#ok<AGROW> % Does not have the dummy at the beginning zero, hence the different subscripts
                         clust(kc).ksubj = ksubj; %#ok<AGROW>
                         clust(kc).subjclustn = kc; %#ok<AGROW>
                         clust(kc).subjNm = subjInfo.subjNm; %#ok<AGROW>
-                        clust(kc).anStartN = subjInfo.anStartN; %#ok<AGROW>
-                        clust(kc).anEndN = subjInfo.anEndN; %#ok<AGROW>
-                        if evGrSt + minNumEv + numAddEv < numev % If more seizures exist
-                            numAddEv = numAddEv + 1; % Add one more seizure to the group so if there are multiple clusters starting with the same seizure, they get detected.
+                        clust(kc).anStartDt = subjInfo.anStartDt; %#ok<AGROW>
+                        clust(kc).anEndDt = subjInfo.anEndDt; %#ok<AGROW>
+                        if evGrSt + minNumEv + numAddEv < numev % If more events exist
+                            numAddEv = numAddEv + 1; % Add one more events to the group so if there are multiple clusters starting with the same event, they get detected.
                         else
                             evGrSt = evGrSt + 1;
-                            addEvTF = false; % Terminate the inner while loop, i.e. stop adding seizures to this group.
+                            addEvTF = false; % Terminate the inner while loop, i.e. stop adding events to this group.
                         end
                     end
                 end
@@ -1019,6 +1018,13 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
         end
     end
     eventBelongsToClust = eventBelongsToClust(2 : end-1);
+
+eventBelongsToClust
+clust
+clust(kc).ds
+
+%% HERE I FINISHED SO FAR
+
 
     % Remove too long clusters
     clusterTooLongTF = [];
