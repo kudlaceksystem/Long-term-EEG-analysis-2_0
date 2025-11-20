@@ -89,6 +89,7 @@ d(3).YAxisLabel = "Sz power (a.u.)";
 dsDesc.(dsDesc.Name(1)) = d;
 
 %% Data to plot
+dpDesc.BinLenDu = seconds(6*3600);
 dpDesc.Name = "Ied"; % Tables that will be created. Typically, each table belongs to one characteristic of signal (e.g. IED rate, mean IED amplitude, signal power, delta/theta ratio, etc.)
 exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
 exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
@@ -222,7 +223,7 @@ pathEeg3 = {
     'BH002390_smrx converted data full'
 };
 pathLbl3 = {
-    'BH002390_label_TEST full'
+    'BH002390_label_TEST with dropout'
 };
 colorfulSubjects = true;
 stg.uniformSubjectColor = [0.8 0.1 0.1];
@@ -255,7 +256,7 @@ stg.isiPlotPwlFitTF = false;
 % % % stg.parNm = {'isi', 'dur', 'rac', 'pow', 'pos'}; % Names of parameters to correlate with intracluster time
 
 % Signal characteristics
-stg.dpBinLenS = 6*3600;
+% % % % % stg.dpBinLenS = 6*3600;
 
 stg.leadSzTimeS = 4*3600; % Duration of the period before the seizure that must be seizure free
 stg.fitSzDurS = 2*3600; % Duration of the fitted region before or after the seizure in seconds
@@ -277,7 +278,7 @@ stg.curFitPopNorm = true;
 % Simulated signal characteristics
 stg.normalizePopCur = true; % Normalize fitted curves (sums of exponentials) in population analysis
 stg.simSiCharFltOrder = 3; % 2 exponentials or 3 exponentials
-% stg.simMovAveLen = 3600/stg.dpBinLenS*4;
+% stg.simMovAveLen = 3600/dpDesc.BinLenDu*4;
 stg.simMovAveLen = 1;
 
 % Statistics
@@ -360,7 +361,7 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
     for ksubj = 1 : stg.numSubj
         lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}]; % Get label path
         snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
-        % [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
+        [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
         [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, ds, dp, clDesc(1), ksubj);
         subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
         
@@ -411,7 +412,7 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
         [siChar.szBeX, siChar.szBeY(ksubj, :), siChar.szAfX, siChar.szAfY(ksubj, :)]...
             = plotSiCharSz(subjInfo, szCharTbl, siCharTbl, ksubj);
         [siCharFit.szBe(ksubj, :), siCharFit.szAf(ksubj, :)]...
-            = plotSiCharSzFit(subjInfo, szCharTbl, siCharTbl, ksubj); % The fitDurS nad leadTimeS should be > 2*stg.dpBinLenS
+            = plotSiCharSzFit(subjInfo, szCharTbl, siCharTbl, ksubj); % The fitDurS nad leadTimeS should be > 2*dp.BinLenS
         [siCharCur.baseline(ksubj, :), siCharCur.ma(ksubj, :), siCharCur.exp(ksubj, :), siCharCur.expFltB(ksubj, :), siCharCur.expFltA(ksubj, :), siCharCur.tauH(ksubj, :), siCharCur.pwl(ksubj, :), ...
             siCharCur.fe(ksubj, :), siCharCur.fp(ksubj, :)]...
             = plotSiCharSzCur(subjInfo, szCharTbl, siCharTbl, isiHist(ksubj, :), ksubj);
@@ -502,8 +503,8 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     global stg
     
     %% NEEDS REWRITING If the data for this subject already exist load it
-    if exist([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'], 'file')
-        load([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'],...
+    if exist([stg.dataFolder, 'Data-', num2str(seconds(dpDesc.BinLenDu)), '-', char(subjNmOrig), '.mat'], 'file')
+        load([stg.dataFolder, 'Data-', num2str(seconds(dpDesc.BinLenDu)), '-', char(subjNmOrig), '.mat'],...
             'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
         stg.szCharYLbl = szCharLabel;
         stg.siCharYLbl = siCharLabel;
@@ -547,36 +548,36 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
         ds.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
     end
 
-    % Loop over label files
-    fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
-    for klbl = 1 : numel(lblpn)
-        % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b') % This can delete the previous line
-        fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
-        % fprintf('\n')
-        ll = load(lblpn{klbl}); % Loaded label. All three variables from the label file will become fields of the ll structure
-        for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
-            nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
-            dd = dsDesc.(nm); % Data description (only for this phenomenon)
-            % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
-            numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows (e.g. number of seizures in this label file)
-            newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialization of the table.
-            for kchar = 1 : size(dsDesc.(nm), 2) % Over characteristics. Fill in new rows for each characteristic of the phenomenon
-                d = dd(kchar); % Description of the current characteristic.
-                funcHandle = str2func(d.CalcFcn); % Get function handle from the name of the function.
-                colnm = d.VarName; % Column name
-                switch d.SrcData % As of now, we probably do not have the sl ready. The loading of sl needs to be finished (or at least tested)
-                    case "Lbl"
-                        newRows.(colnm) = funcHandle(ll, d); % The function must accept the loaded label and characteristic description structure.
-                    case "Snl"
-                        newRows.(colnm) = funcHandle(ls, d);
-                    case "LblSnl"
-                        newRows.(colnm) = funcHandle(ll, ls, d);
-                end
-                newRows.(colnm) = funcHandle(ll, d);
-            end
-            ds.(nm) = [ds.(nm); newRows];
-        end
-    end
+    % % Loop over label files
+    % fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+    % for klbl = 1 : numel(lblpn)
+    %     % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b') % This can delete the previous line
+    %     fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
+    %     % fprintf('\n')
+    %     ll = load(lblpn{klbl}); % Loaded label. All three variables from the label file will become fields of the ll structure
+    %     for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
+    %         nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
+    %         dd = dsDesc.(nm); % Data description (only for this phenomenon)
+    %         % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
+    %         numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows (e.g. number of seizures in this label file)
+    %         newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialization of the table.
+    %         for kchar = 1 : size(dsDesc.(nm), 2) % Over characteristics. Fill in new rows for each characteristic of the phenomenon
+    %             d = dd(kchar); % Description of the current characteristic.
+    %             funcHandle = str2func(d.CalcFcn); % Get function handle from the name of the function.
+    %             colnm = d.VarName; % Column name
+    %             switch d.SrcData % As of now, we probably do not have the sl ready. The loading of sl needs to be finished (or at least tested)
+    %                 case "Lbl"
+    %                     newRows.(colnm) = funcHandle(ll, d); % The function must accept the loaded label and characteristic description structure.
+    %                 case "Snl"
+    %                     newRows.(colnm) = funcHandle(ls, d);
+    %                 case "LblSnl"
+    %                     newRows.(colnm) = funcHandle(ll, ls, d);
+    %             end
+    %             newRows.(colnm) = funcHandle(ll, d);
+    %         end
+    %         ds.(nm) = [ds.(nm); newRows];
+    %     end
+    % end
 
     %% Data to plot
     % Find out if we will need the signal files
@@ -586,7 +587,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     lblOnlyTF = all(lblOnlyTF);
     
     % Split the time into bins
-    binDt = (anStartDt : seconds(stg.dpBinLenS) : anEndDt)'; % Borders of bins in datenum
+    binDt = (anStartDt : dpDesc.BinLenDu : anEndDt)'; % Borders of bins in datenum
     numbin = numel(binDt) - 1; % Number of bins
     dp.tax = binDt(2 : end);  % Each bin should be assigned the timestamp of its end because that is the moment we have had acquired (and processed) all data of the block.
     
@@ -606,7 +607,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
         fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(numbin, '%06d')])
         % fprintf('\n')
         tol = seconds(0.001); % Tolerance in seconds
-        lblfSub = find(lblDt > binDt(kb) + tol, 1, 'first') - 1 : find(lblDt <= binDt(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
+        lblfSub = max(1, find(lblDt > binDt(kb) - tol, 1, 'first') - 1) : find(lblDt <= binDt(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
         % Check if the label and signal files correspond
         if ~dpLblOnlyTF
             snlfSub = find(snlDt > binDt(kb) + tol, 1, 'first') - 1 : find(snlDt <= binDt(kb + 1), 1, 'last'); % Subscripts of signal file relevant for this bin
@@ -1031,7 +1032,7 @@ clust(kc).ds
     % Remove too long clusters
     clusterTooLongTF = false(numel(clust), 1);
     for kc = 1 : length(clust)
-        clusterTooLongTF(kc) = clust(kc).OnsDt(end) - clust(kc).szOnsDt(1) > cld.MaxClusterDur;
+        clusterTooLongTF(kc) = clust(kc).OnsDt(end) - clust(kc).OnsDt(1) > cld.MaxClusterDur;
         if clusterTooLongTF
             eventBelongsToClust(onsDt == clust(kc).OnsDt) = eventBelongsToClust(onsDt == clust(kc).OnsDt) - 1;
         end
@@ -1049,11 +1050,8 @@ clust(kc).ds
 
 
     % Find significant dropouts
-    significanceThresholdN = max([1/24, 1.01*stg.dpBinLenS/3600/24, min(diff(szCharTbl.szOnsN))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
-    % minSignDropDurS = 2*stg.dpBinLenS; % Minimum duration of the dropout to be considered significant (resulting in exclusion of cluster containing it or being to soon after it or too late before it)
-    % significanceThresholdN = max(minSignDropDurS/3600/24, min(diff(szCharTbl.szOnsN))); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
-    % significanceThresholdN = minSignDropDurS/3600/24;
-    tax = siCharTbl.tax;
+    significanceThresholdDu = max([seconds(1/24), seconds(1.01*dpDesc.BinLenDu), min(diff(ds.(cld.Name).OnsDt))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
+    tax = dp.tax;
     tax = [tax, (1 : numel(tax))']; % Number the time points
     taxNotNan = tax(~isnan(siCharTbl.sz), :); % Remove the rows corresponding to dropouts (marked by siCharTbl.sz == NaN)
     taxNotNanDiff = diff(taxNotNan(:, 1)); % Where there were NaNs in the siCharTbl.sz, the tax values were removed so there is a long gap, thus high diff.
@@ -3948,7 +3946,7 @@ function [diffBe, diffAf] = plotSiCharSzBeAfVsOther(subjInfo, szCharTbl, siCharT
         % Get average waveform of IED rate
         myyTblCell{kfp} = stg.withinSubjectStat(yyTbl, 'omitmissing');
         xLen = numel(xxTbl{1, 1});
-        daysTF = (xLen-1)*stg.dpBinLenS/3600/24 > 1.5; % Will the time units in the plot be days or hours?
+        daysTF = (xLen-1)*dpDesc.BinLenDu/3600/24 > 1.5; % Will the time units in the plot be days or hours?
         normFactor = daysTF*(24-1) + 1;
         if daysTF
             timeUnit = '(days)';
@@ -3957,10 +3955,10 @@ function [diffBe, diffAf] = plotSiCharSzBeAfVsOther(subjInfo, szCharTbl, siCharT
         end
         switch fitPosition(kfp)
             case "before"
-                xpCell{kfp} = (-(xLen-1)*stg.dpBinLenS/3600 : stg.dpBinLenS/3600 : 0)/normFactor;
+                xpCell{kfp} = (-(xLen-1)*dpDesc.BinLenDu/3600 : dpDesc.BinLenDu/3600 : 0)/normFactor;
                 diffBe = yThis - yOther;
             case "after"
-                xpCell{kfp} = (0 : stg.dpBinLenS/3600 : (xLen-1)*stg.dpBinLenS/3600)/normFactor;
+                xpCell{kfp} = (0 : dpDesc.BinLenDu/3600 : (xLen-1)*dpDesc.BinLenDu/3600)/normFactor;
                 diffAf = yThis - yOther;
         end
         if plotTF
