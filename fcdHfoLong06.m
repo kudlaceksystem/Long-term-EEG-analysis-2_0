@@ -128,6 +128,12 @@ d(3).PlotTitle  = "IED rate";
 d(3).YAxisLabel = "IEDs/hour";
 dpDesc.(dpDesc.Name(1)) = d;
 
+clDesc(1).Name = "Seizure"; % This has a different structure than dsDesc and dpDesc
+clDesc(1).MinNumInClus = 4; % Minimum required number of given phenomena in the cluster
+clDesc(1).InterclusterMultiplier = 2; % The intercluster period must be stg.InterclusterMultiplier times longer than the longest intracluster inter-event interval
+clDesc(1).MaxClusterDur = 7; % Maximum cluster duration in days
+clDesc(1).MaxWithinClusIeiD = 2; % Maximum inter-event interval within the cluster in days, if longer, it is not a cluster
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%
 %% %%%%%%%% END OF NEW SETTINGS %%%%%%%% %%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%
@@ -219,7 +225,7 @@ pathLbl3 = {
 };
 colorfulSubjects = true;
 stg.uniformSubjectColor = [0.8 0.1 0.1];
-getSubjAndSubjClr(subjToPlot, subjList, colorfulSubjects);
+fcn.getSubjAndSubjClr(subjToPlot, subjList, colorfulSubjects);
 
 % General
 stg.dataFolder = 'DataEmgNotExcluded/';
@@ -240,12 +246,12 @@ stg.isiHistYScale = "log";
 stg.isiPlotExpFitTF = false;
 stg.isiPlotPwlFitTF = false;
 
-% Seizure cluster definition
-stg.minNumSzInClus = 4; % Minimal required number of seizures in cluster
-stg.interclusterMultiplier = 2; % The intercluster period must be stg.interclusterMultiplier times longer than the longest intracluster ISI
-stg.maxClusterDur = 7; % Maximum cluster duration in days
-stg.maxWithinClusIsiN = 2; % In days
-stg.parNm = {'isi', 'dur', 'rac', 'pow', 'pos'}; % Names of parameters to correlate with intracluster time
+% % % % Seizure cluster definition
+% % % stg.MinNumInClus = 4; % Minimal required number of seizures in cluster
+% % % stg.InterclusterMultiplier = 2; % The intercluster period must be stg.InterclusterMultiplier times longer than the longest intracluster ISI
+% % % stg.MaxClusterDur = 7; % Maximum cluster duration in days
+% % % stg.MaxWithinClusIeiD = 2; % In days
+% % % stg.parNm = {'isi', 'dur', 'rac', 'pow', 'pos'}; % Names of parameters to correlate with intracluster time
 
 % Signal characteristics
 stg.dpBinLenS = 6*3600;
@@ -348,13 +354,13 @@ h = struct; h.f = []; h.a = [];
 
 %% Get data from each subject, analyze them
 setFormat; % Set plot colors etc.
-dobTable = getSubjectList('Video-EEG data.xlsx'); % Get list of subjects including their date of birth
+dobTable = fcn.getSubjectList('Video-EEG data.xlsx'); % Get list of subjects including their date of birth
 if analyzeIndividualSubjects % If you have all the subject data in RAM, you may want to skip loading individual subjects
     for ksubj = 1 : stg.numSubj
         lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}]; % Get label path
         snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
         [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
-        [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, szCharTbl, siCharTbl, ksubj);
+        [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, ds, dp, ksubj);
         subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
         
         % Seizure occurrence analysis
@@ -482,66 +488,6 @@ printFigures
 %% FUNCTIONS %%
 %% %%%%%%%%% %%
 % Get data
-function getSubjAndSubjClr(subjToPlot, subjList, colorfulSubjects)
-    global stg
-    if colorfulSubjects
-        hf = figure;
-        axes;
-        subjClr = get(gca, 'ColorOrder');
-        close(hf);
-        delete(hf); % Dummy axes to get Matlab default color order
-        subjClr = [max(1 - (1 - subjClr)*0.75, 0); max(1 - (1 - subjClr)*1.2, 0)]; % Each subject has different color
-    else
-        subjClr = ones(numel(subjList), 1)*stg.uniformSubjectColor; % All subjects have red
-    end
-    subjInd = ismember(subjList, subjToPlot);
-    subjClr = subjClr(subjInd, :);
-    stg.subjColor = subjClr;
-    stg.subjNumber = find(subjInd);
-end
-function dobTable = getSubjectList(dobpn)
-    % datetime below often throughs warnings. I want to turn them off for this function.
-    origWarningState = warning('query', 'all'); % Save the current warning state
-    warning('off', 'all'); % Turn off all warnings
-
-    % Now the function proper
-    videoEEGdata = readtable(dobpn);
-    numSubj = height(videoEEGdata);
-    Subject = strings(numSubj, 1);
-    Birth = datetime.empty(numSubj, 0);
-    Sex = false(numSubj, 1);
-    for k = 1 : numSubj
-        Subject(k, 1) = string(videoEEGdata.Mouse{k});
-        r = regexp(videoEEGdata.Birth(k), '\d\d\d\d-\d\d-\d\d', 'match');
-        if ~isempty(r{1})
-            dt = datetime(r{1}, 'InputFormat', 'yyyy-mm-dd', 'Format', 'uuuu-MM-dd');
-            if year(dt) < 1000
-                dt.Year = dt.Year + 2000;
-            end
-        end
-        
-        r = regexp(videoEEGdata.Birth(k), '\d+-...-\d+', 'match');
-        if ~isempty(r{1})
-            dt = datetime(r{1}, 'InputFormat', 'dd-MMM-yyyy', 'Format', 'uuuu-MM-dd');
-            if year(dt) < 1000
-                dt.Year = dt.Year + 2000;
-            end
-        end
-        
-        r = regexp(videoEEGdata.Birth(k), '\d+\.\d+\.\d+', 'match');
-        if ~isempty(r{1})
-            dt = datetime(r{1}, 'InputFormat', 'dd.MM.uuuu', 'Format', 'uuuu-MM-dd');
-            if year(dt) < 1000
-                dt.Year = dt.Year + 2000;
-            end
-        end
-        Birth(k, 1) = dt;
-        Sex(k, 1) = true;
-    end
-    % Restore the original warning state
-    warning(origWarningState); 
-    dobTable = table(Subject, Birth, Sex);
-end
 function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjNmOrig)
     % dsDesc ........ data to stem description
     % dpDesc ........ data to plot description
@@ -961,12 +907,13 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
 % % % % % % % %         mrkOffN = (find(diff(t) == -1) - 1)/tFs/3600/24 + tStartN;
 % % % % % % % %     end
 end
-function [clust, szBelongsToClust, stats] = extractClusters(subjInfo, szCharTbl, siCharTbl, ksubj)
+function [clust, szBelongsToClust, stats] = extractClusters(subjInfo, ds, dp, cldes, ksubj)
     global stg
+    cldes
     szOnsN = szCharTbl{:, 1}';
     clust = [];
     stats = table;
-    if numel(szOnsN) < stg.minNumSzInClus
+    if numel(szOnsN) < stg.MinNumInClus
         szBelongsToClust = zeros(size(szOnsN));
         stats.clNumClust = 0;
         stats.clNumClustNonNested = 0;
@@ -984,13 +931,13 @@ function [clust, szBelongsToClust, stats] = extractClusters(subjInfo, szCharTbl,
     szOnsN = [0, szOnsN, 8e5]; % Should we count the clusters that start at the beginning of the recording or end at the end of the recording?
     % % % szOnsN = [subjInfo.anStartN, szOnsN, subjInfo.anEndN]; % Should we count the clusters that start at the beginning of the recording or end at the end of the recording?
     szBelongsToClust = zeros(size(szOnsN)); % Does the seizure belong to any cluster?
-    intMult = stg.interclusterMultiplier; % Intercluster period must be intMult times longer than the longest ISI within the cluster
-    minNumSz = stg.minNumSzInClus; % Minimum number of seizures in the cluster
+    intMult = stg.InterclusterMultiplier; % Intercluster period must be intMult times longer than the longest ISI within the cluster
+    minNumSz = stg.MinNumInClus; % Minimum number of seizures in the cluster
     szGrSt = 1; % Seizure group start index
     while szGrSt <= length(szOnsN) - minNumSz
         szGrN = szOnsN(szGrSt : szGrSt + minNumSz); % Seizure group. Now the shortest which could be considered a cluster. Due to the added dummy seizure at the beginning of szOnsN, the group index points at one seizure earlier in szOnsN than in szCharTbl
         isiGrN = diff(szGrN); % ISIs within the group
-        if isiGrN(1) < intMult*max(isiGrN(2 : end)) || any(isiGrN(2 : end) > stg.maxWithinClusIsiN) % The first ISI in the group is too short to be intercluster interval (ICI) or any of the intracluster ISI is > stg.maxWithinClusIsiN
+        if isiGrN(1) < intMult*max(isiGrN(2 : end)) || any(isiGrN(2 : end) > stg.MaxWithinClusIeiD) % The first ISI in the group is too short to be intercluster interval (ICI) or any of the intracluster ISI is > stg.MaxWithinClusIeiD
             szGrSt = szGrSt + 1; % Try another group starting on the next seizure
         else % The first ISI in the group is long enough to be considered as ICI. Let's try if there is an ICI also after the seizure group
             addSzTF = true; % Continue adding more seizures?
@@ -1043,7 +990,7 @@ function [clust, szBelongsToClust, stats] = extractClusters(subjInfo, szCharTbl,
     % Remove too long clusters
     clusterTooLongTF = [];
     for kc = 1 : length(clust)
-        clusterTooLongTF(kc) = clust(kc).szCharTbl.szOnsN(end) - clust(kc).szCharTbl.szOnsN(1) > stg.maxClusterDur; %#ok<AGROW>
+        clusterTooLongTF(kc) = clust(kc).szCharTbl.szOnsN(end) - clust(kc).szCharTbl.szOnsN(1) > stg.MaxClusterDur; %#ok<AGROW>
     end
     clust = clust(~clusterTooLongTF);
 
