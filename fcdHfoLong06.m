@@ -90,7 +90,45 @@ dsDesc.(dsDesc.Name(1)) = d;
 
 %% Data to plot
 dpDesc.BinLenDu = seconds(6*3600);
-dpDesc.Name = "Ied"; % Tables that will be created. Typically, each table belongs to one characteristic of signal (e.g. IED rate, mean IED amplitude, signal power, delta/theta ratio, etc.)
+dpDesc.Name = ["Seizure"; "Ied"]; % Tables that will be created. Typically, each table belongs to one characteristic of signal (e.g. IED rate, mean IED amplitude, signal power, delta/theta ratio, etc.)
+szLbl = ["Seizure", "seizure", "SEIZURE", "S"];
+exLblCh = ""; % Has to be string - use empty string
+exLblAn = "";
+d(1).VarName    = "ValidS";
+d(1).VarType    = "double";
+d(1).CalcLvl    = "file";
+d(1).CalcFcn    = "gd.dpfGetValidAmountCh";
+d(1).SrcData    = "Lbl";
+d(1).MainLbl    = szLbl;
+d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(1).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(1).MinSepS    = minSepSzS;
+d(1).PlotTitle  = "Total duration of usable rec";
+d(1).YAxisLabel = "Usable rec (s)";
+d(2).VarName    = "Count";
+d(2).VarType    = "double";
+d(2).CalcLvl    = "file";
+d(2).CalcFcn    = "gd.dpfGetCountCh";
+d(2).SrcData    = "Lbl";
+d(2).MainLbl    = szLbl;
+d(2).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(2).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(2).MinSepS    = minSepSzS;
+d(2).PlotTitle  = "Sz count";
+d(2).YAxisLabel = "Sz count";
+d(3).VarName    = "RatePh";
+d(3).VarType    = "double";
+d(3).CalcLvl    = "bin";
+d(3).CalcFcn    = "gd.dpbGetRatePhCh";
+d(3).SrcData    = "Lbl";
+d(3).MainLbl    = szLbl;
+d(3).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+d(3).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+d(3).MinSepS    = minSepSzS;
+d(3).PlotTitle  = "Sz rate";
+d(3).YAxisLabel = "Sz/hour";
+dpDesc.(dpDesc.Name(1)) = d;
+
 exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
 exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
 minSepIedS = 0.1;
@@ -127,7 +165,8 @@ d(3).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
 d(3).MinSepS    = minSepIedS;
 d(3).PlotTitle  = "IED rate";
 d(3).YAxisLabel = "IEDs/hour";
-dpDesc.(dpDesc.Name(1)) = d;
+dpDesc.(dpDesc.Name(2)) = d;
+
 
 clDesc(1).Name = "Seizure"; % This has a different structure than dsDesc and dpDesc
 clDesc(1).MinNumInClus = 4; % Minimum required number of given phenomena in the cluster
@@ -361,7 +400,7 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
     for ksubj = 1 : stg.numSubj
         lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}]; % Get label path
         snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
-        [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
+        % [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
         [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, ds, dp, clDesc(1), ksubj);
         subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
         
@@ -548,36 +587,36 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
         ds.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
     end
 
-    % % Loop over label files
-    % fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
-    % for klbl = 1 : numel(lblpn)
-    %     % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b') % This can delete the previous line
-    %     fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
-    %     % fprintf('\n')
-    %     ll = load(lblpn{klbl}); % Loaded label. All three variables from the label file will become fields of the ll structure
-    %     for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
-    %         nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
-    %         dd = dsDesc.(nm); % Data description (only for this phenomenon)
-    %         % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
-    %         numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows (e.g. number of seizures in this label file)
-    %         newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialization of the table.
-    %         for kchar = 1 : size(dsDesc.(nm), 2) % Over characteristics. Fill in new rows for each characteristic of the phenomenon
-    %             d = dd(kchar); % Description of the current characteristic.
-    %             funcHandle = str2func(d.CalcFcn); % Get function handle from the name of the function.
-    %             colnm = d.VarName; % Column name
-    %             switch d.SrcData % As of now, we probably do not have the sl ready. The loading of sl needs to be finished (or at least tested)
-    %                 case "Lbl"
-    %                     newRows.(colnm) = funcHandle(ll, d); % The function must accept the loaded label and characteristic description structure.
-    %                 case "Snl"
-    %                     newRows.(colnm) = funcHandle(ls, d);
-    %                 case "LblSnl"
-    %                     newRows.(colnm) = funcHandle(ll, ls, d);
-    %             end
-    %             newRows.(colnm) = funcHandle(ll, d);
-    %         end
-    %         ds.(nm) = [ds.(nm); newRows];
-    %     end
-    % end
+    % Loop over label files
+    fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+    for klbl = 1 : numel(lblpn)
+        % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b') % This can delete the previous line
+        fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
+        % fprintf('\n')
+        ll = load(lblpn{klbl}); % Loaded label. All three variables from the label file will become fields of the ll structure
+        for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
+            nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
+            dd = dsDesc.(nm); % Data description (only for this phenomenon)
+            % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
+            numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows (e.g. number of seizures in this label file)
+            newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialization of the table.
+            for kchar = 1 : size(dsDesc.(nm), 2) % Over characteristics. Fill in new rows for each characteristic of the phenomenon
+                d = dd(kchar); % Description of the current characteristic.
+                funcHandle = str2func(d.CalcFcn); % Get function handle from the name of the function.
+                colnm = d.VarName; % Column name
+                switch d.SrcData % As of now, we probably do not have the sl ready. The loading of sl needs to be finished (or at least tested)
+                    case "Lbl"
+                        newRows.(colnm) = funcHandle(ll, d); % The function must accept the loaded label and characteristic description structure.
+                    case "Snl"
+                        newRows.(colnm) = funcHandle(ls, d);
+                    case "LblSnl"
+                        newRows.(colnm) = funcHandle(ll, ls, d);
+                end
+                newRows.(colnm) = funcHandle(ll, d);
+            end
+            ds.(nm) = [ds.(nm); newRows];
+        end
+    end
 
     %% Data to plot
     % Find out if we will need the signal files
@@ -974,7 +1013,7 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
                         evGrDt = onsDt(evGrSt : evGrSt + minNumEv + numAddEv - 1); % Add an event
                         if evGrDt7linesAbove ~= evGrDt; error('_jk Logical error in the code. evGrDt7linesAbove should be the same as evGrDt. Solve it.'); end
                         ieiGrDu = diff(evGrDt); % Get IEI
-                        if ieiGrDu(1) > ieiGrDu(2 : end - 1) && ieiGrDu(end) > ieiGrDu(2 : end - 1)
+                        if ieiGrDu(1) > intMult*max(ieiGrDu(2 : end - 1)) && ieiGrDu(end) > intMult*max(ieiGrDu(2 : end - 1))
                             kc = kc + 1;
                             eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) + 1; % Increase the number by 1. The number will indicate level of nestedness of the cluster to which the event belongs.
                             clust(kc).OnsDt = onsDt(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI
@@ -984,14 +1023,13 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
                             clust(kc).subjNm = subjInfo.subject; %#ok<AGROW>
                             clust(kc).anStartDt = subjInfo.anStartDt; %#ok<AGROW>
                             clust(kc).anEndDt = subjInfo.anEndDt; %#ok<AGROW>
-                            evGrSt = evGrSt + 1; % Here we could maybe plug in e.g. numev to stop the outer loop immediatelly
-                            addEvTF = false; % Terminate the inner while loop, i.e. stop adding events to this group
                         else % Remove this when debugging is finished
                             if cld.ExclClAtEdges
                                 disp('Last cluster not separated from the anEndDt enough. The cluster not added.')
-                                pause
                             end
                         end
+                        evGrSt = numev; % Here we could maybe plug in e.g. numev to stop the outer loop immediatelly
+                        addEvTF = false; % Terminate the inner while loop, i.e. stop adding events to this group
                     end
                 else % The added event is after too long IEI so it either just disqualifies the first IEI to define the start of the cluster or it is long enough to terminate the cluster.
                     if ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1)) % _EITHER_ the last IEI is not long enough to be considered terminating ICI. So this group will never be a cluster.
@@ -1020,9 +1058,9 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
     end
     eventBelongsToClust = eventBelongsToClust(2 : end-1);
 
-eventBelongsToClust
-clust
-clust(kc).ds
+% % % % % % % % eventBelongsToClust
+% % % % % % % % clust
+% % % % % % % % clust(kc).ds
 
     onsDtCorrespondTF = all(clust(kc).ds.OnsDt == clust(kc).OnsDt);
     if ~onsDtCorrespondTF
@@ -1039,6 +1077,46 @@ clust(kc).ds
     end
     clust = clust(~clusterTooLongTF);
 
+    % Find significant dropouts
+    tax = dp.tax;
+    binLenDu = mode(diff(tax));
+    significanceThresholdDu = max([seconds(1/24), 1.01*binLenDu, min(diff(ds.(cld.Name).OnsDt))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
+    taxN = (1 : numel(tax))'; % Number the time points
+    taxTbl = table(tax, taxN); % tax and taxN are different class so put them in a table
+    notNanInd = any(~isnan(dp.(cld.Name).ValidS), 2); % At least in one channel, there has to be non-NaN value - then the time point is considered to have valid data
+    taxNotNanTbl = taxTbl(notNanInd, :); % Remove the rows corresponding to dropouts (marked by siCharTbl.sz == NaN)
+    taxNotNanDiff = diff(taxNotNanTbl.tax); % Where there were NaNs in the siCharTbl.sz, the tax values were removed so there is a long gap, thus high diff.
+    signDropOnsSubInTaxNotNan = find(taxNotNanDiff > significanceThresholdDu); % Subscripts into the taxNotNanTbl
+    signDropOnsSubInTax =  taxNotNanTbl.taxN(signDropOnsSubInTaxNotNan); % Extract the number added to tax 4 rows above
+    signDropOffSubInTax =  taxNotNanTbl.taxN(signDropOnsSubInTaxNotNan + 1); % Same for the first row after the dropout
+    signDropOnsDt = tax(signDropOnsSubInTax); % The extracted number is the index into siCharTbl.tax. siCharTbl.tax contains the ends of analysis blocks so this is the end of the last correct block.
+    signDropOffDt = tax(signDropOffSubInTax - 1); % - 1 so that it is the end of the last corrupted (dropout) block
+    % A debugging figure. Remove in the fugure
+    % % % figure
+    % % % plot(siCharTbl.tax, isnan(siCharTbl.sz), '-x');
+    % % % hold on
+    % % % scatter(signDropOnsN, zeros(size(signDropOnsN)), 30, 'Marker', 'o');
+    % % % scatter(signDropOffN, zeros(size(signDropOffN)), 25, 'Marker','o');
+    
+
+    % Remove clusters less than the required multiple of within-cluster ISI from the recording limits or signal dropouts
+    clusterRemoveTF = false(size(clust));
+    for kc = 1 : numel(clust)
+        clOnsDt = clust(kc).OnsDt; % Onsets of event within this cluster
+        clSep = intMult*max(diff(clOnsDt)); % Minimum required separation of the cluster from other events
+        if (clust(kc).OnsDt(1) - subjInfo.anStartDt) < clSep || ... % If the cluster begins too soon after the recording start (which should not happen thanks to the dummies above) OR
+                (subjInfo.anEndDt - clust(kc).OnsDt(end)) < clSep % the recording ends too soon after the cluster end
+            clusterRemoveTF(kc) = true;
+        end
+        for kdrop = 1 : numel(signDropOnsDt)
+            if (clOnsDt(1) - signDropOffDt(kdrop)) < clSep   &&   signDropOnsDt(kdrop) - clOnsDt(end) < clSep % Too soon after dropout end OR dropout onset too soon after cluster end (or one or both differences are even negative which indicates the dropout even reaches or is contained inside the cluster)
+                clusterRemoveTF(kc) = true;
+            end
+        end
+    end
+    clust = clust(~clusterRemoveTF);
+    
+
 
 
 %% %%%%%%%%%%%%%%%%%%%%%% %%
@@ -1048,42 +1126,6 @@ clust(kc).ds
 
 
 
-
-    % Find significant dropouts
-    significanceThresholdDu = max([seconds(1/24), seconds(1.01*dpDesc.BinLenDu), min(diff(ds.(cld.Name).OnsDt))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
-    tax = dp.tax;
-    tax = [tax, (1 : numel(tax))']; % Number the time points
-    taxNotNan = tax(~isnan(siCharTbl.sz), :); % Remove the rows corresponding to dropouts (marked by siCharTbl.sz == NaN)
-    taxNotNanDiff = diff(taxNotNan(:, 1)); % Where there were NaNs in the siCharTbl.sz, the tax values were removed so there is a long gap, thus high diff.
-    signDropOnsSubInTaxNotNan = find(taxNotNanDiff(:, 1) > significanceThresholdN); % Subscripts into the taxNotNan
-    signDropOnsSubInTax =  taxNotNan(signDropOnsSubInTaxNotNan, 2); % Extract the number added to tax 4 rows above
-    signDropOffSubInTax =  taxNotNan(signDropOnsSubInTaxNotNan + 1, 2); % Same for the first row after the dropout
-    signDropOnsN = siCharTbl.tax(signDropOnsSubInTax); % The extracted number is the index into siCharTbl.tax. siCharTbl.tax contains the ends of analysis blocks so this is the end of the last correct block.
-    signDropOffN = siCharTbl.tax(signDropOffSubInTax - 1); % - 1 so that it is the end of the last corrupted (dropout) block
-    % A debugging figure. Remove in the fugure
-    % % % figure
-    % % % plot(siCharTbl.tax, isnan(siCharTbl.sz), '-x');
-    % % % hold on
-    % % % scatter(signDropOnsN, zeros(size(signDropOnsN)), 30, 'Marker', 'o');
-    % % % scatter(signDropOffN, zeros(size(signDropOffN)), 25, 'Marker','o');
-    
-    % Remove clusters less than the required multiple of within-cluster ISI from the recording limits or signal dropouts
-    clusterRemoveTF = false(size(clust));
-    for kc = 1 : length(clust)
-        clSzOnsN = clust(kc).szCharTbl.szOnsN; % Seizure onsets of this cluster
-        clSep = intMult*max(diff(clSzOnsN)); % Minimum separation of the cluster from other events
-        if (clust(kc).szCharTbl.szOnsN(1) - subjInfo.anStartN) < clSep || ... % If the cluster begins too soon after the recording start OR
-                (subjInfo.anEndN - clust(kc).szCharTbl.szOnsN(end)) < clSep % the recording ends too soon after the cluster end
-            clusterRemoveTF(kc) = true;
-        end
-        for kdrop = 1 : numel(signDropOnsN)
-            if (clSzOnsN(1) - signDropOffN(kdrop)) < clSep   &&   signDropOnsN(kdrop) - clSzOnsN(end) < clSep % Too soon after dropout end OR dropout onset too soon after cluster end (or one or both differences are even negative which indicates the dropout even reaches or is contained inside the cluster)
-                clusterRemoveTF(kc) = true;
-            end
-        end
-    end
-    clust = clust(~clusterRemoveTF);
-    
     % Nestedness
     clLimits = NaN(2*length(clust), 4); % First column: cluster limits, second column: 1 or -1, third column: which cluster it is, fourth column: cluster duration
     for k = 1 : length(clust)
