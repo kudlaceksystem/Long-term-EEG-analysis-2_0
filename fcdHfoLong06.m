@@ -1017,7 +1017,7 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
                             kc = kc + 1;
                             eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) + 1; ...
                                 % Increase the number by 1. The number will indicate level of nestedness of the cluster to which the event belongs.
-                            clust(kc).Subscript = evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1; %#ok<AGROW>
+                            clust(kc).Subscript = (evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) - 1; %#ok<AGROW>
                             clust(kc).OnsDt = onsDt(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); ...
                                 %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI
                             clust(kc).ds = ds.(cld.Name)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); ...
@@ -1042,9 +1042,11 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
                     else % _OR_ it is long enough. So events (2 : end-1) of the group form a cluster separated by at least intMult*max(intraClusterISI) on both sides
                         kc = kc + 1;
                         eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) + 1;
-                        clust(kc).Subscript = evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1; %#ok<AGROW>
-                        clust(kc).OnsDt = onsDt(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI. onsN has a dummy at the beginning.
-                        clust(kc).ds = ds.(cld.Name)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); %#ok<AGROW> % Does not have the dummy at the beginning zero, hence the different subscripts
+                        clust(kc).Subscript = (evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) - 1; %#ok<AGROW>
+                        clust(kc).OnsDt = onsDt(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); ...
+                            %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI. onsN has a dummy at the beginning.
+                        clust(kc).ds = ds.(cld.Name)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); ...
+                            %#ok<AGROW> % Does not have the dummy at the beginning zero, hence the different subscripts
                         clust(kc).ksubj = ksubj; %#ok<AGROW>
                         clust(kc).subjclustn = kc; %#ok<AGROW>
                         clust(kc).subjNm = subjInfo.subjNm; %#ok<AGROW>
@@ -1062,11 +1064,6 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
         end
     end
     eventBelongsToClust = eventBelongsToClust(2 : end-1);
-
-% % % % % % % % eventBelongsToClust
-% % % % % % % % clust
-% % % % % % % % clust(kc).ds
-
     onsDtCorrespondTF = all(clust(kc).ds.OnsDt == clust(kc).OnsDt);
     if ~onsDtCorrespondTF
         error('_jk OnsDt directly in clust(kc) and in clust(kc).ds do not correspond.')
@@ -1081,7 +1078,7 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
         end
     end
     clust = clust(~clusterTooLongTF);
-
+    
     % Find significant dropouts
     tax = dp.tax;
     binLenDu = mode(diff(tax));
@@ -1096,14 +1093,7 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
     signDropOffSubInTax =  taxNotNanTbl.taxN(signDropOnsSubInTaxNotNan + 1); % Same for the first row after the dropout
     signDropOnsDt = tax(signDropOnsSubInTax); % The extracted number is the index into siCharTbl.tax. siCharTbl.tax contains the ends of analysis blocks so this is the end of the last correct block.
     signDropOffDt = tax(signDropOffSubInTax - 1); % - 1 so that it is the end of the last corrupted (dropout) block
-    % A debugging figure. Remove in the fugure
-    % % % figure
-    % % % plot(siCharTbl.tax, isnan(siCharTbl.sz), '-x');
-    % % % hold on
-    % % % scatter(signDropOnsN, zeros(size(signDropOnsN)), 30, 'Marker', 'o');
-    % % % scatter(signDropOffN, zeros(size(signDropOffN)), 25, 'Marker','o');
     
-
     % Remove clusters less than the required multiple of within-cluster ISI from the recording limits or signal dropouts
     clusterRemoveTF = false(size(clust));
     for kc = 1 : numel(clust)
@@ -1123,7 +1113,6 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
     end
     clusterRemoveSub = find(clusterRemoveTF);
     for kc = 1 : numel(clusterRemoveSub)
-        asdf = clust(clusterRemoveSub(kc))
         eventBelongsToClust(clust(clusterRemoveSub(kc)).Subscript) = eventBelongsToClust(clust(clusterRemoveSub(kc)).Subscript) - 1;
     end
     clust = clust(~clusterRemoveTF);
@@ -1140,7 +1129,7 @@ eventBelongsToClust
     % Nestedness
     clNesTbl =  ...
         table('Size', [0, 5], 'VariableNames', ["Edge", "OnOff", "ClSub", "Dur", "Nes"], ... % Edge (i.e. onset or offset of a cluster), 1 for onset and -1 for offset, subscript, duration of the cluster, nestedness
-        'VariableTypes', ["datetime", "int8", "uint64", "duration", "uint64"]);
+        'VariableTypes', ["datetime", "double", "double", "duration", "double"]); % Using doubles is not computationally optimal but it makes the rest of the code easy to write the difference in the performance is negligible
     for k = 1 : length(clust)
         clNesTbl.Edge(2*(k-1) + 1) = clust(k).OnsDt(1); % Onset of the first seizure in the cluster
         clNesTbl.OnOff(2*(k-1) + 1) = 1; % Polarity of the edge (1 for onset, -1 for offset)
@@ -1155,10 +1144,17 @@ eventBelongsToClust
     clNesTbl.Nes = cumsum(clNesTbl.OnOff);
     nes = [clNesTbl.ClSub(clNesTbl.OnOff == 1), clNesTbl.Nes(clNesTbl.OnOff == 1)]; % Take only onsets, and only the subscript into cluster structure and the nestedness value
     for kc = 1 : length(clust)
-        clust(nes(kc, 1)).nested = nes(kc, 2) - 1;
+        clust(nes(kc, 1)).nested = nes(kc, 2);
     end
 
-
+    % Check if the nestedness is calculated correctly
+    eventBelongsToClust2 = zeros(size(eventBelongsToClust));
+    for kc = 1 : length(clust)
+        eventBelongsToClust2(clust(kc).Subscript) = max(eventBelongsToClust2(clust(kc).Subscript), clust(kc).nested);
+    end
+    if ~all(eventBelongsToClust == eventBelongsToClust2)
+        error('_jk Nestedness calculation mismatch detected.');
+    end
 
 
 
