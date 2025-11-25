@@ -400,9 +400,9 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
     for ksubj = 1 : stg.numSubj
         lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}]; % Get label path
         snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
-        % [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
+        [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
         [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, ds, dp, clDesc(1), ksubj);
-        subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
+        % subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
         
         % Seizure occurrence analysis
         plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
@@ -586,13 +586,14 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
         dd = dsDesc.(nm); % Data description (only for this phenomenon)
         ds.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
     end
-
     % Loop over label files
     fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
     for klbl = 1 : numel(lblpn)
-        % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b') % This can delete the previous line
-        fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
-        % fprintf('\n')
+        if rem(klbl, 20) == 0
+            fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b') % This can delete the previous line
+            fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
+            fprintf('\n')
+        end
         ll = load(lblpn{klbl}); % Loaded label. All three variables from the label file will become fields of the ll structure
         for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
             nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
@@ -642,9 +643,11 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     loadedLblpn = ""; % Keep track of the currently loaded label file
     loadedSnlpn = ""; % Keep track of the currently loaded signal file
     for kb = 1 : numbin % Loop over time blocks
-        % fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
-        fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(numbin, '%06d')])
-        % fprintf('\n')
+        if rem(klbl, 20) == 0
+            fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b')
+            fprintf(['\nBin No. ', num2str(kb, '%06d'), '/', num2str(numbin, '%06d')])
+            fprintf('\n')
+        end
         tol = seconds(0.001); % Tolerance in seconds
         lblfSub = max(1, find(lblDt > binDt(kb) - tol, 1, 'first') - 1) : find(lblDt <= binDt(kb + 1), 1, 'last'); % Subscripts of label files relevant for this bin
         % Check if the label and signal files correspond
@@ -982,9 +985,9 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
     end
     kc = 0; % Cluster number
     if cld.ExclClAtEdges % Exclude clusters at edges of the recording?
-        onsDt = [subjInfo.anStartDt; onsDt; subjInfo.anEndDt];
+        onsDt = [subjInfo.anStartDt; onsDt; subjInfo.anEndDt]; % Adding dummy events at the analysis start and end
     else
-        onsDt = [0; onsDt; years(3000)];
+        onsDt = [0; onsDt; years(3000)]; % Adding dummy events at the year 0 and year 3000
     end
     eventBelongsToClust = zeros(size(onsDt)); % Does the event belong to any cluster?
     intMult = cld.InterclusterMultiplier; % Intercluster period must be intMult times longer than the longest ISI within the cluster
@@ -1117,16 +1120,7 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
     end
     clust = clust(~clusterRemoveTF);
     
-
-clust
-eventBelongsToClust
-
-
-
-
-
-
-    % Nestedness
+    %% Nestedness
     clNesTbl =  ...
         table('Size', [0, 5], 'VariableNames', ["Edge", "OnOff", "ClSub", "Dur", "Nes"], ... % Edge (i.e. onset or offset of a cluster), 1 for onset and -1 for offset, subscript, duration of the cluster, nestedness
         'VariableTypes', ["datetime", "double", "double", "duration", "double"]); % Using doubles is not computationally optimal but it makes the rest of the code easy to write the difference in the performance is negligible
@@ -1156,6 +1150,61 @@ eventBelongsToClust
         error('_jk Nestedness calculation mismatch detected.');
     end
 
+    %% Statistics
+    stats = table;
+    if isempty(clust)
+        stats.clNumClust = 0; % Total number of cluster of this subject
+        stats.clNumClustNonNested = 0; % Number of non-nested clusters (with nestedness == 1)
+        stats.clFracWithinClustEv = 0; % Fraction of events occurring within a cluster (nestedness >= 1)
+        stats.clNumEvPerClust = NaN; % Mean number of events per cluster
+        stats.clClusterDurDu = NaN; % Mean cluster duration in duration
+        stats.clBetwClusPerDu = NaN; % Mean between-cluster period in duration
+        % % % stats.clBetwClusDiffDur = NaN; % Mean of differences of the duration of the last event in the previous cluster and first in the next IMPLEMENT IT IN ANOTHER FUNCTION
+        % % % stats.clBetwClusDiffRac = NaN;
+        % % % stats.clBetwClusDiffPow = NaN;
+        % % % stats.clBetwClusDiffPos = NaN;
+        return
+    end
+    clEvOnsDt = [];
+    betwClusPeriod = duration(NaN, NaN, NaN); % NaN duration
+    % % % betwClusDiffDur = NaN;
+    % % % betwClusDiffRac = NaN;
+    % % % betwClusDiffPow = NaN;
+    % % % betwClusDiffPos = NaN;
+    
+    clustNonNested = clust([clust.nested] == 1); % Non-nested clusters have nestedness 1 (not 0 like they used to have)
+    for kc = 1 : length(clustNonNested)
+        clEvOnsDt = [clEvOnsDt; clustNonNested(kc).OnsDt]; %#ok<AGROW>
+        if kc >= 2
+            betwClusPeriod(kc-1) = clustNonNested(kc).OnsDt(1) - clustNonNested(kc-1).OnsDt(end);
+            % % % betwClusDiffDur(kc-1) = clustNonNested(kc).szCharTbl.szDurS(1) - clustNonNested(kc-1).szCharTbl.szDurS(end);
+            % % % betwClusDiffRac(kc-1) = clustNonNested(kc).szCharTbl.szRac(1) - clustNonNested(kc-1).szCharTbl.szRac(end);
+            % % % betwClusDiffPow(kc-1) = clustNonNested(kc).szCharTbl.szPow(1) - clustNonNested(kc-1).szCharTbl.szPow(end);
+            % % % betwClusDiffPos(kc-1) = clustNonNested(kc).szCharTbl.postIctPow(1) - clustNonNested(kc-1).szCharTbl.postIctPow(end);
+        end
+    end
+    % Make sure that each seizure is counted maximum of once (which should be ensured by taking only the non-nested clusters but let's double check).
+    clEvOnsDt2 = clEvOnsDt;
+    clEvOnsDt = unique(clEvOnsDt); % Remove duplicates (some seizures may be part of more clusters)
+    if ~all(clEvOnsDt2 == clEvOnsDt)
+        error('_jk Even when only non-nested clusters are considered, there were probably still some seizures counted multiple times.')
+    end
+    numWithinClEv = length(clEvOnsDt); % Number of within-cluster events
+    numAllEv = numev - 2; % Subtract the dummy events
+    stats.clNumClust = length(clust);
+    stats.clNumClustNonNested = length(clustNonNested);
+    stats.clFracWithinClustEv = numWithinClEv/numAllEv; % Proportion of seizures that occurred within a cluster. Easier to determine here than later in subjectStats
+    stats.clNumEvPerClust = mean(arrayfun(@(x) numel(x.OnsDt), clust));
+    stats.clClusterDur = mean(arrayfun(@(x) x.OnsDt(end) - x.OnsDt(1), clust));
+    stats.clInterclusPeriod = mean(betwClusPeriod);
+    % % % stats.clBetwClusDiffDur = mean(BetwClusDiffDur);
+    % % % stats.clBetwClusDiffRac = mean(BetwClusDiffRac);
+    % % % stats.clBetwClusDiffPow = mean(BetwClusDiffPow);
+    % % % stats.clBetwClusDiffPos = mean(interclusDiffPos);
+
+
+
+
 
 
 
@@ -1170,58 +1219,6 @@ eventBelongsToClust
 
 
 
-
-
-
-
-    % Statistics
-    stats = table;
-    if isempty(clust)
-        stats.clNumClust = 0;
-        stats.clNumClustNonNested = 0;
-        stats.clFracIntraClustSz = 0;
-        stats.clNumSzPerClust = NaN;
-        stats.clClusterDur = NaN;
-        stats.clClusterDurH = NaN;
-        stats.clInterclusPer = NaN;
-        stats.clInterclusDiffDur = NaN;
-        stats.clInterclusDiffRac = NaN;
-        stats.clInterclusDiffPow = NaN;
-        stats.clInterclusDiffPos = NaN;
-        return
-    end
-    clusSzOnsN = [];
-    interclusPeriod = NaN;
-    interclusDiffDur = NaN;
-    interclusDiffRac = NaN;
-    interclusDiffPow = NaN;
-    interclusDiffPos = NaN;
-    
-    clustNonNested = clust([clust.nested] == 0);
-    for kc = 1 : length(clustNonNested)
-        clusSzOnsN = [clusSzOnsN, clustNonNested(kc).szOnsN]; %#ok<AGROW>
-        if kc >= 2
-            interclusPeriod(kc-1) = clustNonNested(kc).szCharTbl.szOnsN(1) - clustNonNested(kc-1).szCharTbl.szOnsN(end);
-            interclusDiffDur(kc-1) = clustNonNested(kc).szCharTbl.szDurS(1) - clustNonNested(kc-1).szCharTbl.szDurS(end);
-            interclusDiffRac(kc-1) = clustNonNested(kc).szCharTbl.szRac(1) - clustNonNested(kc-1).szCharTbl.szRac(end);
-            interclusDiffPow(kc-1) = clustNonNested(kc).szCharTbl.szPow(1) - clustNonNested(kc-1).szCharTbl.szPow(end);
-            interclusDiffPos(kc-1) = clustNonNested(kc).szCharTbl.postIctPow(1) - clustNonNested(kc-1).szCharTbl.postIctPow(end);
-        end
-    end
-    clusSzOnsN = unique(clusSzOnsN); % Remove duplicates (some seizures may be part of more clusters)
-    numIntraClustSz = length(clusSzOnsN);
-    numAllSz = numev - 2;
-    stats.clNumClust = length(clust);
-    stats.clNumClustNonNested = length(clustNonNested);
-    stats.clFracIntraClustSz = numIntraClustSz/numAllSz; % Proportion of seizures that occurred within a cluster. Easier to determine here than later in subjectStats
-    stats.clNumSzPerClust = mean(arrayfun(@(x) numel(x.szOnsN), clust));
-    stats.clClusterDur = mean(arrayfun(@(x) x.szOnsN(end) - x.szOnsN(1), clust));
-    stats.clClusterDurH = 24*mean(arrayfun(@(x) x.szOnsN(end) - x.szOnsN(1), clust));
-    stats.clInterclusPeriod = mean(interclusPeriod);
-    stats.clInterclusDiffDur = mean(interclusDiffDur);
-    stats.clInterclusDiffRac = mean(interclusDiffRac);
-    stats.clInterclusDiffPow = mean(interclusDiffPow);
-    stats.clInterclusDiffPos = mean(interclusDiffPos);
 end
 % Plot seizure occurrence analyses
 function plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
