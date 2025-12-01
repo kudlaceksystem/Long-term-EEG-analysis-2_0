@@ -18,10 +18,10 @@ I use the following naming conventions. I suggest we all follow them in this pro
     - Iteration variable starts with k. E.g. kch ... iteration over channels, kf ... iteration over files, k ... just iteration over anything.
     - num... stands for number of ... . Typically numbin ... number of bins, numch ... number of channels.
     - Similarly ...len stands for ... length, such as binlen ... bin length.
-    - ...p stands for ... path, e.g. lblp ... label path (e.g. "\\neurodata\Lab Neurophysiology root\Mouse01\"). Caution: As of now, we sometimes use the "\" at the end and sometimes not. We should standardize this one or the other way. Which one do you prefer?
+    - ...p stands for ... path, e.g. lblp ... label path (e.g. "\\neurodata\Lab Neurophysiology root\Mouse01\"). Caution: As of now, we sometimes use the "\\" at the end and sometimes not. We should standardize this one or the other way. Which one do you prefer?
     - ...n stands for ... name, e.g. lbln ... label name (e.g. "Mouse01-241224_200000-lbl3.mat")
     - ...pn stands for ... path and name (e.g. "\\neurodata\Lab Neurophysiology root\Mouse01\Mouse01-241224_200000-lbl3.mat")
-- Signal is usually abbreviated snl except for some old compatibility requirements (sig could cause confusion with signum function)
+- Signal is usually abbreviated snl except for some old compatibility requirements (sig could cause confusion with the signum function)
 - Suffixes may indicate data class
     - N .... datenum
     - Dt ... datetime
@@ -36,7 +36,7 @@ The function getData creates three variables: subjectInfo, ds, dp.
 
 The philosophy is to first get all the data that might be relevant in the ds and dp sturctures using dsDesc and dpDesc.
 The data might be saved so that we do not have to load all the individual data files again and again when just improving analyses and figures.
-Then, there will be some figureDesc structure, which will describe the figures. Figures may combine data from both ds and dp.
+Then, there will be figDesc structure, which will describe the figures. Figures may combine data from both ds and dp.
 
 ### Input
 #### dsDesc
@@ -50,71 +50,42 @@ Different characteristics may require different fields.
 If a characteristic does not require certain field which is needed for other characteristics, just do not initialize it.
 Matlab will automatically initialize it with some default value, which will be, however, ignored by the rest of the program.
 ##### Example
-dsDesc.Name = ["Seizure; Drink"]
-
+```matlab
+dsDesc.Name = ["Seizure; Drink"];
 % It is often useful to declare some of the variables in advance when they are the same in many elements of the structure array.
-
 mainLbl = ["Seizure", "seizure", "SEIZURE", "S", "s"]; % Names of the main labels to analyze (here any name for a seizure label class)
-
 exLblAn = ["Noise", "Artifact"]; % Labels to exclude in all channels if present in any.
-
 minSepSzS = 60; % Minimum separation of seizures in seconds
-
-dsDesc.Seizure.VarName    = "OnsDt"; % Variable name, i.e. name of the characteristic. Here onset in datetime.
-
-dsDesc.Seizure.VarType    = "datetime"; % Variable type (i.e. Matlab class). We may consider using the word class instead of type but it could be confused the the label class of OSEL labels.
-
+dsDesc.Seizure(1).VarName    = "OnsDt"; % Variable name, i.e. name of the characteristic. Here onset in datetime.
+dsDesc.Seizure(1).VarType    = "datetime"; % Variable type (i.e. Matlab class). We may consider using the word class instead of type but it could be confused the the label class of OSEL labels.
 dsDesc.Seizure(1).CalcFcn    = "gd.dsfGetOnsDt"; % Calculating function. Name of the function which will be called to calculate the data. The function may be in a +folder.
-
 dsDesc.Seizure(1).SrcData    = "Lbl"; % Is the data computed from label files, signal files or both? Permitted values are "Lbl", "Snl" or "LblSnl".
-
 dsDesc.Seizure(1).MainLbl    = mainLbl; % See the declaration above
-
-dsDesc.Seizure(1).ExLblAn    = exLblAn; % See the declaration above 
-
+dsDesc.Seizure(1).ExLblAn    = exLblAn; % See the declaration above
 dsDesc.Seizure(1).MinSepS    = minSepSzS; % See the declaration above
-
 dsDesc.Seizure(1).PlotTitle  = "Seizure occurrence"; % Title used in the final plots
-
 dsDesc.Seizure(1).YAxisLabel = ""; % y-axis label used in the final plots (should include units, btw units should be in parentheses and not brackets)
-
 dsDesc.Seizure(2).VarName    = "DurDu";
-
 dsDesc.Seizure(2).VarType    = "duration";
-
 dsDesc.Seizure(2).CalcFcn    = "gd.dsfGetDurDu";
-
 dsDesc.Seizure(2).SrcData    = "Lbl";
-
 dsDesc.Seizure(2).MainLbl    = mainLbl;
-
 dsDesc.Seizure(2).ExLblAn    = exLblAn;
-
 dsDesc.Seizure(2).MinSepS    = minSepSzS;
-
 dsDesc.Seizure(2).PlotTitle  = "Seizure duration";
-
 dsDesc.Seizure(2).YAxisLabel = "Sz dur (s)";
-
 dsDesc.Seizure(3).VarName    = "Pow";
-
 dsDesc.Seizure(3).VarType    = "double";
-
 dsDesc.Seizure(3).CalcFcn    = "gd.dsfGetPow";
-
 dsDesc.Seizure(3).SrcData    = "Lbl";
-
 dsDesc.Seizure(3).MainLbl    = mainLbl;
-
 dsDesc.Seizure(3).ExLblAn    = exLblAn;
-
 dsDesc.Seizure(3).MinSepS    = minSepSzS;
-
 dsDesc.Seizure(3).PlotTitle  = "Seizure signal power";
-
 dsDesc.Seizure(3).YAxisLabel = "Sz power (a.u.)";
-
 ... and similarly for the Drink field.
+```
+
 #### dpDesc
 Data to plot description. Similar to dsDesc.
 There may be additional fields, most importantly CalcLvl, which indicates calculation level (on the level of files or bins).

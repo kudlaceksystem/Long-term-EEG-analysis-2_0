@@ -403,8 +403,11 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
         snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
         [subjInfo, ds, dp] = fcn.getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
         [clust, szBelongsToClust, clustStats] = fcn.extractClusters(subjInfo, ds, dp, clDesc(1), ksubj);
-        subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
-        
+        %% %%%%%%%%%%%%%%%%%%%%%%
+        %% DO SUBJECT STATS LATER
+        % % % subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW> 
+        %% %%%%%%%%%%%%%%%%%%%%%%
+
         % Seizure occurrence analysis
         plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
         plotSzKaroly(subjInfo, szCharTbl, siCharTbl, ksubj)
