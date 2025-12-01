@@ -31,6 +31,9 @@ I use the following naming conventions. I suggest we all follow them in this pro
     - Ind .. index (logical)
     - Sub .. subscript (sequential number)
 
+## +fcn folder
+Functions called directly by alpaca. E.g. getData, extractClusters, etc.
+
 ## getData
 The function getData creates three variables: subjectInfo, ds, dp.
 
@@ -138,3 +141,18 @@ It uses a functions from the +gd folder.
 - Functions for manipulation of labels not directly called by getData should be named ..Lbl...
 - Functions for manipulation of signal files not directly called by getData should be named ..Snl...
 
+## figMain
+### Current state
+Defines figure size internally.
+
+Calls a function to create a figure at a specified position.
+
+
+###
+New philosophy:
+
+figDesc.Name ... names of the figures
+
+figDesc.(figDesc.Name(k)) ... structure with fields:
+MainFcn ... function to be called
+then some description which the MainFcn will use
