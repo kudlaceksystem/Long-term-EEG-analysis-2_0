@@ -1,4 +1,4 @@
-function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp, cld, ksubj)
+function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld, ksubj)
     arguments (Input)
         subjInfo
         ds % Data to stem, typically, this will contain the phenomena to cluster
@@ -7,13 +7,13 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
         ksubj % Which subject we are analyzing now
     end
     arguments (Output)
-        clust
-        eventBelongsToClust
-        stats
+        clust % Structure with the cluster data (TODO003 POSSIBLY CHANGE IT TO A TABLE)
+        eventBelongsToClust % Column vector indicating for each event how many clusters it belongs to.
+        stats % One-row table with statistics, can be appended to a table containing all subjects
     end
 
     % global stg
-    onsDt = ds.(cld.Name).OnsDt; % We always cluster by onset datetime here
+    onsDt = ds.(cld.EventName).OnsDt; % We always cluster by onset datetime here
     clust = [];
     stats = table;
     if numel(onsDt) < cld.MinNumInClus
@@ -70,7 +70,7 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
                             clust(kc).Subscript = (evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) - 1; %#ok<AGROW>
                             clust(kc).OnsDt = onsDt(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); ...
                                 %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI
-                            clust(kc).ds = ds.(cld.Name)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); ...
+                            clust(kc).ds = ds.(cld.EventName)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); ...
                                 %#ok<AGROW> % Note, that here we are subscripting into the original table of events with no dummy event at the beginning.
                             clust(kc).ksubj = ksubj; %#ok<AGROW>
                             clust(kc).subjclustn = kc; %#ok<AGROW>
@@ -95,7 +95,7 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
                         clust(kc).Subscript = (evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) - 1; %#ok<AGROW>
                         clust(kc).OnsDt = onsDt(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1); ...
                             %#ok<AGROW> % Cluster begins after the ICI period and ends by the beginning of the ICI. onsN has a dummy at the beginning.
-                        clust(kc).ds = ds.(cld.Name)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); ...
+                        clust(kc).ds = ds.(cld.EventName)(evGrSt : evGrSt + minNumEv + numAddEv - 2, :); ...
                             %#ok<AGROW> % Does not have the dummy at the beginning zero, hence the different subscripts
                         clust(kc).ksubj = ksubj; %#ok<AGROW>
                         clust(kc).subjclustn = kc; %#ok<AGROW>
@@ -132,10 +132,10 @@ function [clust, eventBelongsToClust, stats] = extractClusters(subjInfo, ds, dp,
     % Find significant dropouts
     tax = dp.tax;
     binLenDu = mode(diff(tax));
-    significanceThresholdDu = max([seconds(1/24), 1.01*binLenDu, min(diff(ds.(cld.Name).OnsDt))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
+    significanceThresholdDu = max([seconds(1/24), 1.01*binLenDu, min(diff(ds.(cld.EventName).OnsDt))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
     taxN = (1 : numel(tax))'; % Number the time points
     taxTbl = table(tax, taxN); % tax and taxN are different class so put them in a table
-    notNanInd = any(~isnan(dp.(cld.Name).ValidS), 2); % At least in one channel, there has to be non-NaN value - then the time point is considered to have valid data
+    notNanInd = any(~isnan(dp.(cld.EventValidSrc).ValidS), 2); % At least in one channel, there has to be non-NaN value - then the time point is considered to have valid data
     taxNotNanTbl = taxTbl(notNanInd, :); % Remove the rows corresponding to dropouts (marked by siCharTbl.sz == NaN)
     taxNotNanDiff = diff(taxNotNanTbl.tax); % Where there were NaNs in the siCharTbl.sz, the tax values were removed so there is a long gap, thus high diff.
     signDropOnsSubInTaxNotNan = find(taxNotNanDiff > significanceThresholdDu); % Subscripts into the taxNotNanTbl

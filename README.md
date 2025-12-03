@@ -35,7 +35,7 @@ I use the following naming conventions. I suggest we all follow them in this pro
 Functions called directly by alpaca. E.g. getData, extractClusters, etc.
 
 ## getData
-The function getData creates three variables: subjectInfo, ds, dp.
+In +fcn folder. The function getData creates three variables: subjectInfo, ds, dp.
 
 The philosophy is to first get all the data that might be relevant in the ds and dp sturctures using dsDesc and dpDesc.
 The data might be saved so that we do not have to load all the individual data files again and again when just improving analyses and figures.
@@ -141,6 +141,21 @@ It uses a functions from the +gd folder.
 - Functions for manipulation of labels not directly called by getData should be named ..Lbl...
 - Functions for manipulation of signal files not directly called by getData should be named ..Snl...
 
+## extractClusters.m
+In +fcn folder. Uses clDesc according to the following example:
+```matlab
+clDesc(1).Name = "Seizure"; % This has a different structure than dsDesc and dpDesc
+clDesc(1).MinNumInClus = 4; % Minimum required number of given phenomena in the cluster
+clDesc(1).InterclusterMultiplier = 2; % The intercluster period must be stg.InterclusterMultiplier times longer than the longest intracluster inter-event interval
+clDesc(1).MaxClusterDur = 7; % Maximum cluster duration in days
+clDesc(1).MaxWithinClusIeiD = 2; % Maximum inter-event interval within the cluster in days, if longer, it is not a cluster
+clDesc(1).ExclClAtEdges = true;
+```
+Returns:
+ - clust ... Structure with the cluster data (TODO003 POSSIBLY CHANGE IT TO A TABLE)
+ - eventBelongsToClust ... Column vector indicating for each event how many clusters it belongs to.
+ - stats ... One-row table with statistics, can be appended to a table containing all subjects
+
 ## figMain
 ### Current state
 Defines figure size internally.
@@ -148,7 +163,7 @@ Defines figure size internally.
 Calls a function to create a figure at a specified position.
 
 
-###
+### Figures
 New philosophy:
 
 figDesc.Name ... names of the figures

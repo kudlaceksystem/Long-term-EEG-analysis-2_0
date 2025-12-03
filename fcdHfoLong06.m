@@ -12,6 +12,9 @@ end
 %% ANALYSIS
 % TODO001 Different time extents of label and signal files. Needs to be fixed in the data not in this script.
 % TODO002 If file is already loaded do not load it again
+% TODO003 Change from struct to table in getClusters
+% TODO004 DO SUBJECT STATS LATER
+% TODO005 get rid of global variables
 % In siCharCl fix the y-axis labels
 % Add before-, during- and after-cluster raw IED rate and possibly also sz chars
 % Add violin plots of baselines after the exponentials
@@ -55,6 +58,24 @@ end
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%
 %% %%%%%%%% NEW SETTINGS %%%%%%%% %%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%
+global stg % TODO005 get rid of global variables
+
+%% Select subjects
+subjList = {'BH002390'};
+path0 = 'r:\Kudlacek\FCD HFO\HFO long-term profile'; % Without '\' at the end
+path1 = {
+    'Testing snl and lbl'
+};
+subjToPlot = {
+        'BH002390';
+};
+pathEeg3 = {
+    'BH002390_smrx converted data full'
+};
+pathLbl3 = {
+    'BH002390_label_TEST with dropout'
+};
+
 
 %% Data to stem
 dsDesc.Name = "Seizure"; % Types of tables that will be created. Typically, each table belongs to one type of event (e.g. seizure, sleep epoch, some behavioral event)
@@ -88,15 +109,20 @@ d(3).MinSepS    = minSepSzS;
 d(3).PlotTitle  = "Seizure signal power";
 d(3).YAxisLabel = "Sz power (a.u.)";
 dsDesc.(dsDesc.Name(1)) = d;
+clear d
 
 %% Data to plot
-dpDesc.BinLenDu = seconds(6*3600);
-dpDesc.Name = ["Seizure"; "Ied"]; % Tables that will be created. Typically, each table belongs to one characteristic of signal (e.g. IED rate, mean IED amplitude, signal power, delta/theta ratio, etc.)
+% % % dpDesc.BinLenDu = seconds(6*3600);
+dpDesc.Name = ["Seizure21600"; "Ied3600"]; % Tables that will be created. Typically, each table belongs to one characteristic of signal (e.g. IED rate, mean IED amplitude, signal power, delta/theta ratio, etc.)
+
+% Seizure
+binlenDu = seconds(6*3600);
 szLbl = ["Seizure", "seizure", "SEIZURE", "S"];
 exLblCh = ""; % Has to be string - use empty string
 exLblAn = "";
 d(1).VarName    = "ValidS";
 d(1).VarType    = "double";
+d(1).BinLenDu   = binlenDu;
 d(1).CalcLvl    = "file";
 d(1).CalcFcn    = "gd.dpfGetValidAmountCh";
 d(1).SrcData    = "Lbl";
@@ -108,6 +134,7 @@ d(1).PlotTitle  = "Total duration of usable rec";
 d(1).YAxisLabel = "Usable rec (s)";
 d(2).VarName    = "Count";
 d(2).VarType    = "double";
+d(2).BinLenDu   = binlenDu;
 d(2).CalcLvl    = "file";
 d(2).CalcFcn    = "gd.dpfGetCountCh";
 d(2).SrcData    = "Lbl";
@@ -119,6 +146,7 @@ d(2).PlotTitle  = "Sz count";
 d(2).YAxisLabel = "Sz count";
 d(3).VarName    = "RatePh";
 d(3).VarType    = "double";
+d(3).BinLenDu   = binlenDu;
 d(3).CalcLvl    = "bin";
 d(3).CalcFcn    = "gd.dpbGetRatePhCh";
 d(3).SrcData    = "Lbl";
@@ -129,12 +157,16 @@ d(3).MinSepS    = minSepSzS;
 d(3).PlotTitle  = "Sz rate";
 d(3).YAxisLabel = "Sz/hour";
 dpDesc.(dpDesc.Name(1)) = d;
+clear d
 
+% Ied
+binlenDu = seconds(3600);
 exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
 exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
 minSepIedS = 0.1;
 d(1).VarName    = "ValidS";
 d(1).VarType    = "double";
+d(1).BinLenDu   = binlenDu;
 d(1).CalcLvl    = "file";
 d(1).CalcFcn    = "gd.dpfGetValidAmountCh";
 d(1).SrcData    = "Lbl";
@@ -146,6 +178,7 @@ d(1).PlotTitle  = "Total duration of usable rec";
 d(1).YAxisLabel = "Usable rec (s)";
 d(2).VarName    = "Count";
 d(2).VarType    = "double";
+d(2).BinLenDu   = binlenDu;
 d(2).CalcLvl    = "file";
 d(2).CalcFcn    = "gd.dpfGetCountCh";
 d(2).SrcData    = "Lbl";
@@ -157,6 +190,7 @@ d(2).PlotTitle  = "IED count";
 d(2).YAxisLabel = "IED count";
 d(3).VarName    = "RatePh";
 d(3).VarType    = "double";
+d(3).BinLenDu   = binlenDu;
 d(3).CalcLvl    = "bin";
 d(3).CalcFcn    = "gd.dpbGetRatePhCh";
 d(3).SrcData    = "Lbl";
@@ -167,14 +201,38 @@ d(3).MinSepS    = minSepIedS;
 d(3).PlotTitle  = "IED rate";
 d(3).YAxisLabel = "IEDs/hour";
 dpDesc.(dpDesc.Name(2)) = d;
+clear d
 
-
-clDesc(1).Name = "Seizure"; % This has a different structure than dsDesc and dpDesc
+%% Clusters description
+clDesc(1).EventName = "Seizure"; % This has a different structure than dsDesc and dpDesc
+clDesc(1).EventValidSrc = "Seizure21600";
 clDesc(1).MinNumInClus = 4; % Minimum required number of given phenomena in the cluster
 clDesc(1).InterclusterMultiplier = 2; % The intercluster period must be stg.InterclusterMultiplier times longer than the longest intracluster inter-event interval
 clDesc(1).MaxClusterDur = 7; % Maximum cluster duration in days
 clDesc(1).MaxWithinClusIeiD = 2; % Maximum inter-event interval within the cluster in days, if longer, it is not a cluster
 clDesc(1).ExclClAtEdges = true;
+
+%% Figures description
+% General settings
+stg.figWidth1 = 8.5;
+stg.figWidth2 = stg.figWidth1*2 + 0.5;
+stg.numSubj = numel(subjToPlot);
+
+% List the figures you wish to plot
+figDesc.Name = ["SzRaster"]; %#ok<NBRAK2>
+
+% SzRaster
+d.Name          = "SzRaster";
+d.FigFcn        = "figRaster"; % Function to use
+d.EventName     = "Seizure"; % Phenomenon to stem
+d.EventChar     = "DurDu"; % Characteristic to display as the height of the stems
+d.EventValidSrc = "Seizure21600";
+d.PositionCm    = [5, 5, stg.figWidth2, stg.numSubj*0.7 + 1.5]; % Position in centimeters
+figDesc.(figDesc.Name(1)) = d;
+clear d
+
+
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%
 %% %%%%%%%% END OF NEW SETTINGS %%%%%%%% %%
@@ -184,7 +242,7 @@ clDesc(1).ExclClAtEdges = true;
 
 
 %% OLD SETTINGS
-global stg
+
 
 %% Select plots
 % Seizure occurrence
@@ -250,21 +308,7 @@ stg.plotSsExplainSumOfExp   =  0;
 stg.showStat                =  0;
 stg.printFigures            =  0;
 
-%% Select subjects
-subjList = {'BH002390'};
-path0 = 'r:\Kudlacek\FCD HFO\HFO long-term profile'; % Without '\' at the end
-path1 = {
-    'Testing snl and lbl'
-};
-subjToPlot = {
-        'BH002390';
-};
-pathEeg3 = {
-    'BH002390_smrx converted data full'
-};
-pathLbl3 = {
-    'BH002390_label_TEST with dropout'
-};
+
 colorfulSubjects = true;
 stg.uniformSubjectColor = [0.8 0.1 0.1];
 fcn.getSubjAndSubjClr(subjToPlot, subjList, colorfulSubjects);
@@ -350,7 +394,7 @@ stg.siCharYLim =        ["nonneg", "nonneg"];
 stg.siCharBinWeights =  "iedValidS";
 stg.siCharNameShort =   "IED";
 
-stg.numSubj = numel(subjToPlot);
+
 if numel(stg.szCharToPlot) + numel(stg.siCharToPlot) < 6
     stg.sbNCol = max(1, ceil(sqrt(stg.numSubj)) - 1); % Subplots of subjects: number of columns
 else
@@ -394,6 +438,19 @@ stg.subjColorSubjMeanMult = 0;
 global h %#ok<*GVMIS>
 h = struct; h.f = []; h.a = [];
 
+
+%% Prepare empty figures
+figDesc.Name
+numel(figDesc.Name)
+for kfig = 1 : numel(figDesc.Name)
+    fd = figDesc.(figDesc.Name(kfig));
+    h.f.(fd.Name) = figure("Name", fd.Name, "Units", stg.units, "Position", fd.PositionCm, "Color", [1 1 1]);
+    h.f.(fd.Name).Units = 'pixels';
+end
+
+
+
+
 %% Get data from each subject, analyze them
 setFormat; % Set plot colors etc.
 dobTable = fcn.getSubjectList('Video-EEG data.xlsx'); % Get list of subjects including their date of birth
@@ -402,64 +459,73 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
         lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}]; % Get label path
         snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
         [subjInfo, ds, dp] = fcn.getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
-        [clust, szBelongsToClust, clustStats] = fcn.extractClusters(subjInfo, ds, dp, clDesc(1), ksubj);
+        [clust, szBelongsToClust, clustStats] = fcn.getClusters(subjInfo, ds, dp, clDesc(1), ksubj);
         %% %%%%%%%%%%%%%%%%%%%%%%
-        %% DO SUBJECT STATS LATER
+        %% TODO004 DO SUBJECT STATS LATER
         % % % subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW> 
         %% %%%%%%%%%%%%%%%%%%%%%%
 
-        % Seizure occurrence analysis
-        plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
-        plotSzKaroly(subjInfo, szCharTbl, siCharTbl, ksubj)
-        [szRate, szRateBinlen] = plotSzRate(subjInfo, szCharTbl, siCharTbl, ksubj); % szRate and binlen are used in the plotSzPsd function
-        [szPsdPax(ksubj, :), szPsd(ksubj, :)] = plotSzPsd(subjInfo, szRate, szRateBinlen, ksubj); %#ok<SAGROW>
-        [isiH{ksubj, 1}, isiStats(ksubj, :), isiHist(ksubj, :)] = plotSzIsiHist(subjInfo, szCharTbl, ksubj); %#ok<SAGROW>
-        
-        % Seizure characteristics analyses
-        plotSzChar(ksubj, subjInfo, szCharTbl, siCharTbl)
-        [szCharFit.whole(ksubj, :), szCharFit.wholeX(ksubj, :), szCharFit.wholeY(ksubj, :)]...
-            = plotSzCharWhFit(ksubj, subjInfo, szCharTbl, siCharTbl);
-        [szCharFit.clDu(ksubj, :), szCharFit.clDuX(ksubj, :), szCharFit.clDuY(ksubj, :)]...
-            = plotSzCharCl(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
-        [szCharFit.clDu(ksubj, :), szCharFit.clDuX(ksubj, :), szCharFit.clDuY(ksubj, :)]...
-            = plotSzCharClFit(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
-        [szCharFit.circ(ksubj, :), szChar.circEd, szChar.circR(ksubj, :)]...
-            = plotSzCharCiFit(ksubj, subjInfo, szCharTbl, siCharTbl);
-        clustSzCharTbl(ksubj, :) = clTerminDur(szCharTbl, clust, szBelongsToClust); %#ok<SAGROW>
-        
-        % Seizure and signal characteristics analyses in one figure
-        plotSaChar(ksubj, subjInfo, szCharTbl, siCharTbl)
-        % % % plotSaCharCWT(ksubj, subjInfo, szCharTbl, siCharTbl)
-        [saCharFit.whole(ksubj, :), saCharFit.wholeX(ksubj, :), saCharFit.wholeY(ksubj, :)]...
-            = plotSaCharWhFit(ksubj, subjInfo, szCharTbl, siCharTbl);
-        [saCharFit.clBe(ksubj, :), saCharFit.clDu(ksubj, :), saCharFit.clAf(ksubj, :)]...
-            = plotSaCharClFit(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
-        plotSaCharCl(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
-        [saCharFit.circ(ksubj, :), saChar.circP(ksubj, :), saChar.circR(ksubj, :), saChar.ray(ksubj, :), saChar.omn(ksubj, :)]...
-            = plotSaCharCiFit(ksubj, subjInfo, szCharTbl, siCharTbl);
-        
-        % Signal characteristics analyses
-        plotSiChar(subjInfo, szCharTbl, siCharTbl, ksubj);
-        % % % [siPaxTbl(ksubj, :), siPsdTbl(ksubj, :)]...
-            % % % = plotSiCharPsd(subjInfo, siCharTbl, ksubj); %#ok<SAGROW>
-        siCharFit.whole(ksubj, :)...
-            = plotSiCharWhFit(subjInfo, szCharTbl, siCharTbl, ksubj);
-        [siChar.clBeX, siChar.clBeY(ksubj, :), siChar.clDuX, siChar.clDuY(ksubj, :), siChar.clAfX, siChar.clAfY(ksubj, :)]...
-            = plotSiCharCl(subjInfo, siCharTbl, clust, ksubj);
-        [siCharFit.clBe(ksubj, :), siCharFit.clDu(ksubj, :), siCharFit.clAf(ksubj, :)]...
-            = plotSiCharClFit(subjInfo, szCharTbl, siCharTbl, clust, ksubj);
-        [siCharFit.circ(ksubj, :), siChar.circP(ksubj, :), siChar.circR(ksubj, :)]...
-            = plotSiCharCiFit(subjInfo, szCharTbl, siCharTbl, ksubj);
-        [siCharSzDiffBe(ksubj, :), siCharSzDiffAf(ksubj, :)]...
-            = plotSiCharSzBeAfVsOther(subjInfo, szCharTbl, siCharTbl, ksubj);
-        [siChar.szBeX, siChar.szBeY(ksubj, :), siChar.szAfX, siChar.szAfY(ksubj, :)]...
-            = plotSiCharSz(subjInfo, szCharTbl, siCharTbl, ksubj);
-        [siCharFit.szBe(ksubj, :), siCharFit.szAf(ksubj, :)]...
-            = plotSiCharSzFit(subjInfo, szCharTbl, siCharTbl, ksubj); % The fitDurS nad leadTimeS should be > 2*dp.BinLenS
-        [siCharCur.baseline(ksubj, :), siCharCur.ma(ksubj, :), siCharCur.exp(ksubj, :), siCharCur.expFltB(ksubj, :), siCharCur.expFltA(ksubj, :), siCharCur.tauH(ksubj, :), siCharCur.pwl(ksubj, :), ...
-            siCharCur.fe(ksubj, :), siCharCur.fp(ksubj, :)]...
-            = plotSiCharSzCur(subjInfo, szCharTbl, siCharTbl, isiHist(ksubj, :), ksubj);
-        [risingTbl(ksubj, :), risingClTbl(ksubj, :), risingNonClTbl(ksubj, :)] = siCharRisingAroundSz(szCharTbl, siCharTbl, szBelongsToClust); %#ok<SAGROW>
+        for kfig = 1 : numel(figDesc.Name)
+            d = figDesc.(figDesc.Name(kfig));
+            funcHandle = str2func(d.FigFcn); % Get function handle from the name of the function.
+            funcHandle(stg, h, d, subjInfo, ds, dp, clust)
+
+
+
+
+        end
+        % % % % Seizure occurrence analysis
+        % % % plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
+        % % % plotSzKaroly(subjInfo, szCharTbl, siCharTbl, ksubj)
+        % % % [szRate, szRateBinlen] = plotSzRate(subjInfo, szCharTbl, siCharTbl, ksubj); % szRate and binlen are used in the plotSzPsd function
+        % % % [szPsdPax(ksubj, :), szPsd(ksubj, :)] = plotSzPsd(subjInfo, szRate, szRateBinlen, ksubj); %#ok<SAGROW>
+        % % % [isiH{ksubj, 1}, isiStats(ksubj, :), isiHist(ksubj, :)] = plotSzIsiHist(subjInfo, szCharTbl, ksubj); %#ok<SAGROW>
+        % % % 
+        % % % % Seizure characteristics analyses
+        % % % plotSzChar(ksubj, subjInfo, szCharTbl, siCharTbl)
+        % % % [szCharFit.whole(ksubj, :), szCharFit.wholeX(ksubj, :), szCharFit.wholeY(ksubj, :)]...
+        % % %     = plotSzCharWhFit(ksubj, subjInfo, szCharTbl, siCharTbl);
+        % % % [szCharFit.clDu(ksubj, :), szCharFit.clDuX(ksubj, :), szCharFit.clDuY(ksubj, :)]...
+        % % %     = plotSzCharCl(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
+        % % % [szCharFit.clDu(ksubj, :), szCharFit.clDuX(ksubj, :), szCharFit.clDuY(ksubj, :)]...
+        % % %     = plotSzCharClFit(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
+        % % % [szCharFit.circ(ksubj, :), szChar.circEd, szChar.circR(ksubj, :)]...
+        % % %     = plotSzCharCiFit(ksubj, subjInfo, szCharTbl, siCharTbl);
+        % % % clustSzCharTbl(ksubj, :) = clTerminDur(szCharTbl, clust, szBelongsToClust); %#ok<SAGROW>
+        % % % 
+        % % % % Seizure and signal characteristics analyses in one figure
+        % % % plotSaChar(ksubj, subjInfo, szCharTbl, siCharTbl)
+        % % % % % % plotSaCharCWT(ksubj, subjInfo, szCharTbl, siCharTbl)
+        % % % [saCharFit.whole(ksubj, :), saCharFit.wholeX(ksubj, :), saCharFit.wholeY(ksubj, :)]...
+        % % %     = plotSaCharWhFit(ksubj, subjInfo, szCharTbl, siCharTbl);
+        % % % [saCharFit.clBe(ksubj, :), saCharFit.clDu(ksubj, :), saCharFit.clAf(ksubj, :)]...
+        % % %     = plotSaCharClFit(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
+        % % % plotSaCharCl(ksubj, subjInfo, szCharTbl, siCharTbl, clust);
+        % % % [saCharFit.circ(ksubj, :), saChar.circP(ksubj, :), saChar.circR(ksubj, :), saChar.ray(ksubj, :), saChar.omn(ksubj, :)]...
+        % % %     = plotSaCharCiFit(ksubj, subjInfo, szCharTbl, siCharTbl);
+        % % % 
+        % % % % Signal characteristics analyses
+        % % % plotSiChar(subjInfo, szCharTbl, siCharTbl, ksubj);
+        % % % % % % [siPaxTbl(ksubj, :), siPsdTbl(ksubj, :)]...
+        % % %     % % % = plotSiCharPsd(subjInfo, siCharTbl, ksubj); %#ok<SAGROW>
+        % % % siCharFit.whole(ksubj, :)...
+        % % %     = plotSiCharWhFit(subjInfo, szCharTbl, siCharTbl, ksubj);
+        % % % [siChar.clBeX, siChar.clBeY(ksubj, :), siChar.clDuX, siChar.clDuY(ksubj, :), siChar.clAfX, siChar.clAfY(ksubj, :)]...
+        % % %     = plotSiCharCl(subjInfo, siCharTbl, clust, ksubj);
+        % % % [siCharFit.clBe(ksubj, :), siCharFit.clDu(ksubj, :), siCharFit.clAf(ksubj, :)]...
+        % % %     = plotSiCharClFit(subjInfo, szCharTbl, siCharTbl, clust, ksubj);
+        % % % [siCharFit.circ(ksubj, :), siChar.circP(ksubj, :), siChar.circR(ksubj, :)]...
+        % % %     = plotSiCharCiFit(subjInfo, szCharTbl, siCharTbl, ksubj);
+        % % % [siCharSzDiffBe(ksubj, :), siCharSzDiffAf(ksubj, :)]...
+        % % %     = plotSiCharSzBeAfVsOther(subjInfo, szCharTbl, siCharTbl, ksubj);
+        % % % [siChar.szBeX, siChar.szBeY(ksubj, :), siChar.szAfX, siChar.szAfY(ksubj, :)]...
+        % % %     = plotSiCharSz(subjInfo, szCharTbl, siCharTbl, ksubj);
+        % % % [siCharFit.szBe(ksubj, :), siCharFit.szAf(ksubj, :)]...
+        % % %     = plotSiCharSzFit(subjInfo, szCharTbl, siCharTbl, ksubj); % The fitDurS nad leadTimeS should be > 2*dp.BinLenS
+        % % % [siCharCur.baseline(ksubj, :), siCharCur.ma(ksubj, :), siCharCur.exp(ksubj, :), siCharCur.expFltB(ksubj, :), siCharCur.expFltA(ksubj, :), siCharCur.tauH(ksubj, :), siCharCur.pwl(ksubj, :), ...
+        % % %     siCharCur.fe(ksubj, :), siCharCur.fp(ksubj, :)]...
+        % % %     = plotSiCharSzCur(subjInfo, szCharTbl, siCharTbl, isiHist(ksubj, :), ksubj);
+        % % % [risingTbl(ksubj, :), risingClTbl(ksubj, :), risingNonClTbl(ksubj, :)] = siCharRisingAroundSz(szCharTbl, siCharTbl, szBelongsToClust); %#ok<SAGROW>
     end
 end
 if analyzePopulation
@@ -502,8 +568,8 @@ load('siCharCurPop.mat', 'siCharCurPop')
 for ksubj = 1 : stg.numSubj
     lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}];
     snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Taking "EMG not removed" because the contaminated data are removed later
-    [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
-    [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, szCharTbl, siCharTbl, ksubj);
+    % [subjInfo, szCharTbl, siCharTbl] = getData(lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
+    % [clust, szBelongsToClust, clustStats] = extractClusters(subjInfo, szCharTbl, siCharTbl, ksubj);
     % % % subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW>
 
     % Seizure and signal characteristics analyses in one figure
@@ -538,31 +604,48 @@ printFigures
 
 
 % Plot seizure occurrence analyses
-function plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
-    global stg
-    global h
-    positionCm = [5, 5, stg.figWidth2, stg.numSubj*0.7 + 1.5];
-    [plotTF, plotName] = createFigPos(positionCm);
-    if plotTF
-        if ~isfield(h.a, plotName)
-            h.a.(plotName) = axes('Units', stg.units, 'Position', [3, 1, positionCm(3) - 3.5, positionCm(4) - 1.5]);
+% % % % function figRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
+function figRaster(stg, h, d, subjInfo, ds, dp, clust)
+    arguments (Input)
+        stg % structure, global settings
+        h % structure, graphics handles
+        d % structure, plot description
+        subjInfo % structure, subject info
+        ds % structure, data to stem
+        dp % structure, data to plot (in "continuous" time sampled in time bins)
+        clust % table with clusters
+    end
+    arguments (Output)
+    end
+
+stg, d, subjInfo, ds, dp, clust
+
+
+    % % % % % % positionCm = [5, 5, stg.figWidth2, stg.numSubj*0.7 + 1.5];
+    % % % % [plotTF, plotName] = createFigPos(positionCm);
+    % % % % % % % if plotTF
+        if ~isfield(h.a, d.Name)
+            h.a.(d.Name) = axes('Units', stg.units, 'Position', [3, 1, d.PositionCm(3) - 3.5, d.PositionCm(4) - 1.5]);
         end
         
+
+
+
         % Signal OK marker
-        [x, y] = getSzOkXY(subjInfo, siCharTbl);
-        y = y + (stg.numSubj - ksubj)*2 + 0.5;
+        [x, y] = fig.getValidXY(subjInfo, d, dp);
+        y = y + (stg.numSubj - subjInfo.ksubj)*2 + 0.5;
         plot(x, y, 'Marker', 'none', 'LineWidth', 1.5, 'Color', stg.subjColor(ksubj, :));
         clear x y
         hold on
         
-        % Seizures
-        % x = (szCharTbl.szOnsN - subjInfo.anStartN); % X data common for polynomial fitting and plotting
-        x = (szCharTbl.szOnsN - subjInfo.dob); % X data common for polynomial fitting and plotting
+        % Events
+        numev = numel(ds.(d.EventName).OnsDt);
+        x = (ds.(d.EventName).OnsDt - subjInfo.dob); % X data common for polynomial fitting and plotting
         x = repelem(x, 3);
-        y1 = ones(size(szCharTbl, 1), 1)*0;
-        y(1 : 3 : 3*size(szCharTbl, 1)) = y1 + (stg.numSubj - ksubj)*2 + 0.5;
-        y(2 : 3 : 3*size(szCharTbl, 1)) = y1 + (stg.numSubj - ksubj)*2 + 1.5;
-        y(3 : 3 : 3*size(szCharTbl, 1)) = NaN(size(szCharTbl, 1), 1);
+        y1 = zeros(numev);
+        y(1 : 3 : 3*numev) = y1 + (stg.numSubj - subjInfo.ksubj)*2 + 0.5;
+        y(2 : 3 : 3*numev) = y1 + (stg.numSubj - subjInfo.ksubj)*2 + 1.5;
+        y(3 : 3 : 3*numev) = NaN(numev, 1);
         % hp = plot(x, y, 'Marker', 'none', 'LineWidth', 0.5, 'Color', 'k');
         h.p.(plotName)(ksubj, 1) = plot(x, y, 'Marker', 'none', 'LineWidth', 0.5, 'Color', stg.subjColor(ksubj, :));
         clear x y
@@ -589,7 +672,7 @@ function plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
         h.a.(plotName).YLim = [0, (stg.numSubj - 1)*2 + 1.5; ];
         h.a.(plotName).Box = 'off';
         h.a.(plotName).Units = 'normalized';
-    end
+    % % % % % % % end
 end
 function plotSzKaroly(subjInfo, szCharTbl, siCharTbl, ksubj)
     global stg
@@ -7375,28 +7458,30 @@ function [spx, spy, spWi, spHe, numr, numc] = getSubplotXYWH(plotName, margGlob,
     spx = (0 : numc-1)*splWi + margGlob(1) + marg(1); % Subplot - x-coordinate of its lower left corner
     spy = (numr-1 : -1 : 0)*splHe + margGlob(2) + marg(2); % Subplot - y-coordinate of its lower left corner
 end
-function [x, y, xx] = getSzOkXY(subjInfo, siCharTbl)
-    % x .... [blockStart, blockEnd, NaN, blockStart, blockEnd, NaN, ...], time from the date of birth (dob)
-    % y .... [0, 0, NaN, 0, 0, NaN, NaN, NaN, NaN, 0, 0, NaN, 1, 1, NaN, ...] if there are three NaNs, it indicates no data for given block (dropout)
-    % xx ... first row beginnings, second row ends of the valid blocks, time from the date of birth (dob)
-    global stg
-    % x1 = siCharTbl.tax - subjInfo.anStartN;
-    x1 = siCharTbl.tax - subjInfo.dob;
-    x = NaN(3*numel(x1), 1);
-    x(1 : 3 : end - 2) = x1;
-    x(2 : 3 : end - 1) = x1 + stg.dpBinLenS/3600/24;
-
-    y1 = zeros(size(x1));
-    y1(isnan(siCharTbl.art)) = NaN; % siCharTbl.art is NaN where there is no signal (due to dropout)
-    y = NaN(3*numel(y1), 1);
-    y(1 : 3 : end - 2) = y1;
-    y(2 : 3 : end - 1) = y1;
-
-    xx(1, :) = x(1 : 3 : end - 2);
-    xx(2, :) = x(2 : 3 : end - 1);
-    yy(1, :) = y(1 : 3 : end - 2);
-    xx = xx(:, ~isnan(yy(1, :))); % First row beginnings, second row ends of the valid blocks
-end
+% % % % % % % % % % % % % % % function [x, y, xx] = getValidXY(subjInfo, d, dp)
+% % % % % % % % % % % % % % %     % x .... [blockStart, blockEnd, NaN, blockStart, blockEnd, NaN, ...], time from the date of birth (dob)
+% % % % % % % % % % % % % % %     % y .... [0, 0, NaN, 0, 0, NaN, NaN, NaN, NaN, 0, 0, NaN, ...] if there are three NaNs, it indicates no data for given block (dropout)
+% % % % % % % % % % % % % % %     % xx ... first row beginnings, second row ends of the valid blocks, time from the date of birth (dob)
+% % % % % % % % % % % % % % %     ta = [dp.tax(1) - (dp.tax(2) - dp.tax(1)); dp.tax]; % Add the beginning of the first block
+% % % % % % % % % % % % % % %     x1 = days(ta - subjInfo.dob);
+% % % % % % % % % % % % % % %     x = NaN(3*(numel(x1) - 1), 1);
+% % % % % % % % % % % % % % %     x(1 : 3 : end - 2) = x1(1 : end - 1);
+% % % % % % % % % % % % % % %     x(2 : 3 : end - 1) = x1(2 : end);
+% % % % % % % % % % % % % % % 
+% % % % % % % % % % % % % % %     yTF = false(size(x));
+% % % % % % % % % % % % % % %     yTF(1 : 3 : end - 2) = all(isnan(dp.(d.EventName).ValidS), 2); % If it is NaN in all channels, make y true
+% % % % % % % % % % % % % % %     yTF(2 : 3 : end - 1) = all(isnan(dp.(d.EventName).ValidS), 2);
+% % % % % % % % % % % % % % %     yTF(1 : 3 : end - 2) = all(dp.(d.EventName).ValidS == 0, 2); % If there is 0 seconds of valid signal, make y true
+% % % % % % % % % % % % % % %     yTF(2 : 3 : end - 1) = all(dp.(d.EventName).ValidS == 0, 2);
+% % % % % % % % % % % % % % %     y = zeros(size(yTF));
+% % % % % % % % % % % % % % %     y(yTF) = NaN; % Where y is true, make it NaN
+% % % % % % % % % % % % % % %     y(3 : 3 : end) = NaN; % Separation of bins
+% % % % % % % % % % % % % % % 
+% % % % % % % % % % % % % % %     xx(1, :) = x(1 : 3 : end - 2);
+% % % % % % % % % % % % % % %     xx(2, :) = x(2 : 3 : end - 1);
+% % % % % % % % % % % % % % %     yy(1, :) = y(1 : 3 : end - 2);
+% % % % % % % % % % % % % % %     xx = xx(:, ~isnan(yy(1, :))); % First row beginnings, second row ends of the valid blocks
+% % % % % % % % % % % % % % % end
 function [yl, yt] = getYLimYTick(y, varargin)
     % y ......... signal to accommodate within the axes
     % varargin .. two-element string array indicating requirements for the the y-axis limits
