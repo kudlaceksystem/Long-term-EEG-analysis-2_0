@@ -223,7 +223,7 @@ figDesc.Name = ["SzRaster"]; %#ok<NBRAK2>
 
 % SzRaster
 d.Name          = "SzRaster";
-d.FigFcn        = "figRaster"; % Function to use
+d.FigFcn        = "fig.figRaster"; % Function to use
 d.EventName     = "Seizure"; % Phenomenon to stem
 d.EventChar     = "DurDu"; % Characteristic to display as the height of the stems
 d.EventValidSrc = "Seizure21600";
@@ -602,78 +602,7 @@ printFigures
 %%   HERE I FINISHED SO FAR   %%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%% %%
 
-
 % Plot seizure occurrence analyses
-% % % % function figRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
-function figRaster(stg, h, d, subjInfo, ds, dp, clust)
-    arguments (Input)
-        stg % structure, global settings
-        h % structure, graphics handles
-        d % structure, plot description
-        subjInfo % structure, subject info
-        ds % structure, data to stem
-        dp % structure, data to plot (in "continuous" time sampled in time bins)
-        clust % table with clusters
-    end
-    arguments (Output)
-    end
-
-stg, d, subjInfo, ds, dp, clust
-
-
-    % % % % % % positionCm = [5, 5, stg.figWidth2, stg.numSubj*0.7 + 1.5];
-    % % % % [plotTF, plotName] = createFigPos(positionCm);
-    % % % % % % % if plotTF
-        if ~isfield(h.a, d.Name)
-            h.a.(d.Name) = axes('Units', stg.units, 'Position', [3, 1, d.PositionCm(3) - 3.5, d.PositionCm(4) - 1.5]);
-        end
-        
-
-
-
-        % Signal OK marker
-        [x, y] = fig.getValidXY(subjInfo, d, dp);
-        y = y + (stg.numSubj - subjInfo.ksubj)*2 + 0.5;
-        plot(x, y, 'Marker', 'none', 'LineWidth', 1.5, 'Color', stg.subjColor(ksubj, :));
-        clear x y
-        hold on
-        
-        % Events
-        numev = numel(ds.(d.EventName).OnsDt);
-        x = (ds.(d.EventName).OnsDt - subjInfo.dob); % X data common for polynomial fitting and plotting
-        x = repelem(x, 3);
-        y1 = zeros(numev);
-        y(1 : 3 : 3*numev) = y1 + (stg.numSubj - subjInfo.ksubj)*2 + 0.5;
-        y(2 : 3 : 3*numev) = y1 + (stg.numSubj - subjInfo.ksubj)*2 + 1.5;
-        y(3 : 3 : 3*numev) = NaN(numev, 1);
-        % hp = plot(x, y, 'Marker', 'none', 'LineWidth', 0.5, 'Color', 'k');
-        h.p.(plotName)(ksubj, 1) = plot(x, y, 'Marker', 'none', 'LineWidth', 0.5, 'Color', stg.subjColor(ksubj, :));
-        clear x y
-    
-        % Clusters
-        for kcl = 1 : numel(clust)
-            x(1) = clust(kcl).szOnsN(1) - subjInfo.dob;
-            x(2) = clust(kcl).szOnsN(end) - subjInfo.dob;
-            yOffset = (clust(kcl).nested + 1)*0.2;
-            y = [1 1]*((stg.numSubj - ksubj)*2 + 0.5 + yOffset);
-            h.p.(plotName)(ksubj, 2) = plot(x, y, 'Marker', '.', 'MarkerSize', 4, 'LineWidth', 1.5, 'Color', 'k');
-        end
-        
-        xlabel('Age (days)')
-        % xlim([45 155]); % Shows all mice complete
-        xlim([49 110]); % Shows all mice except Mouse 10 complete
-        h.a.(plotName).YAxis.Visible = 'off';
-        % text(-0.1*range(h.a.(plotName).XLim), (stg.numSubj - ksubj)*2 + 0.5, ['Mouse ', num2str(ksubj)], 'Interpreter', 'none', 'FontWeight', 'bold')
-        % text(-0.02*range(h.a.(plotName).XLim), (stg.numSubj - ksubj)*2 + 0.5, subjInfo.subjNm, 'Interpreter', 'none', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle')
-        text(-0.02*(max(h.a.(plotName).XLim)-min(h.a.(plotName).XLim)) + h.a.(plotName).XLim(1), (stg.numSubj - ksubj)*2 + 1, subjInfo.subjNm,...
-            'Interpreter', 'none', 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle', 'Color', stg.subjColor(ksubj, :), 'FontWeight', 'bold');
-        h.a.(plotName).FontSize = stg.axFontSize;
-        h.a.(plotName).Layer = 'top';
-        h.a.(plotName).YLim = [0, (stg.numSubj - 1)*2 + 1.5; ];
-        h.a.(plotName).Box = 'off';
-        h.a.(plotName).Units = 'normalized';
-    % % % % % % % end
-end
 function plotSzKaroly(subjInfo, szCharTbl, siCharTbl, ksubj)
     global stg
     global h
