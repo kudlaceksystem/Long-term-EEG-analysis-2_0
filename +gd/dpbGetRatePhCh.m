@@ -1,5 +1,5 @@
 function r = dpbGetRatePhCh(binTbl, nm)
-    % dp ........... data to plot structure
+binTbl
     % nm ........... name of the dp field to work on
     if any(binTbl.(nm).Count < 0, "all")
         disp(binTbl.(nm).Count)

@@ -46,7 +46,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     if ~lblOnlyTF
         [snlpn, snlDt] = gd.dbfGetPnDt(snlp); % Get path name and datenum
     end
-    [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, subjNmOrig);
+    [subjNm, anStartDt, anEndDt, chName] = getSubjInfo(lblpn, subjNmOrig);
     
     %% Data to stem
     % Initialize the table in a field of the ds structure
@@ -106,7 +106,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
         % Split the time into bins
         binDt = (anStartDt : binlenUnDu(kbinlen) : anEndDt)'; % Borders of bins in datenum
         numbin = numel(binDt) - 1; % Number of bins
-        dp.tax = binDt(2 : end);  % Each bin should be assigned the timestamp of its end because that is the moment we have had acquired (and processed) all data of the block.
+        % % % % % % % tax = binDt(2 : end);  % Each bin should be assigned the timestamp of its end because that is the moment we have had acquired (and processed) all data of the block.
         
         % Initialize the table in a field of the dp structure
         for kn = 1 : numel(dpDesc.Name)
@@ -256,6 +256,14 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                 end
             end
         end
+        for kn = 1 : numel(dpDesc.Name) % Over the names of the phenomena
+            nm = dpDesc.Name(kn); % Name of the current phenomenon
+            dd = dpDesc.(nm); % Description of all the calculations on the current phenomenon
+            if dd(1).BinLenDu == binlenUnDu(kbinlen)
+                dp.(nm).tax = binDt(2 : end);  % Each bin should be assigned the timestamp of its end because that is the moment we have had acquired (and processed) all data of the block.
+                dp.(nm) = movevars(dp.(nm), 'tax', 'Before', 1);
+            end
+        end
     end
 
     %% Get subject info
@@ -264,6 +272,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     subjInfo.subjNmOrig = subjInfo.subjNm;
     subjInfo.anStartDt = anStartDt;
     subjInfo.anEndDt = anEndDt;
+    subjInfo.chName = chName;
     subjNumber = regexp(subjNm, '\D\D\d\d\d+', 'match');
     subjNumber = subjNumber{1}(3 : end);
     whichSubj = find(contains(string(dobTable{:, 1}), subjNumber));
@@ -279,12 +288,14 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
 % % % %     save([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
     
     %% Nested functions - possibly put them also in +gd?
-    function [subjNm, anStartDt, anEndDt] = getSubjInfo(lblpn, subjNmOrig, varargin)
+    function [subjNm, anStartDt, anEndDt, chName] = getSubjInfo(lblpn, subjNmOrig, varargin)
         load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet') %#ok<NASGU>
         % There can be multiple subjects in one lbl3 file. Keep only channels containing the data on the subject.
         ss = strsplit(subjNmOrig, 'ET'); % ET stands for ear tag. Sometimes it is included in the subject name
         whichChannelsLbl = find(contains(sigInfo.Subject, ss{end}));
         sigInfo = sigInfo(whichChannelsLbl, :);
+        chName = sigInfo.ChName;
+
         % % % % % % % % % % lblSet = lblSet(ismember(lblSet.Channel, whichChannelsLbl), :);
         % Check that all rows belong to the same subject
         subjNm = sigInfo.Subject(1);

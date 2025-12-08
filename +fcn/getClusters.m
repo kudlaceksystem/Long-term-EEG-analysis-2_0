@@ -130,7 +130,7 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
     clust = clust(~clusterTooLongTF);
     
     % Find significant dropouts
-    tax = dp.tax;
+    tax = dp.(cld.EventValidSrc).tax;
     binLenDu = mode(diff(tax));
     significanceThresholdDu = max([seconds(1/24), 1.01*binLenDu, min(diff(ds.(cld.EventName).OnsDt))]); % The 1.01 constant is to accommodate tiny inaccuracies in the analysis block durations due to rounding errors.
     taxN = (1 : numel(tax))'; % Number the time points
@@ -172,6 +172,7 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
         table('Size', [0, 5], 'VariableNames', ["Edge", "OnOff", "ClSub", "Dur", "Nes"], ... % Edge (i.e. onset or offset of a cluster), 1 for onset and -1 for offset, subscript, duration of the cluster, nestedness
         'VariableTypes', ["datetime", "double", "double", "duration", "double"]); % Using doubles is not computationally optimal but it makes the rest of the code easy to write the difference in the performance is negligible
     for k = 1 : length(clust)
+        warning('off', 'MATLAB:table:RowsAddedExistingVars')
         clNesTbl.Edge(2*(k-1) + 1) = clust(k).OnsDt(1); % Onset of the first seizure in the cluster
         clNesTbl.OnOff(2*(k-1) + 1) = 1; % Polarity of the edge (1 for onset, -1 for offset)
         clNesTbl.ClSub(2*(k-1) + 1) = k; % Original subscript of the cluster
@@ -180,6 +181,7 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
         clNesTbl.OnOff(2*(k-1) + 2) = -1; % Polarity of the edge (1 for onset, -1 for offset)
         clNesTbl.ClSub(2*(k-1) + 2) = k; % Original subscript of the cluster
         clNesTbl.Dur(2*(k-1) + 2, 4) = clust(k).OnsDt(end) - clust(k).OnsDt(1);
+        warning('on', 'MATLAB:table:RowsAddedExistingVars')
     end
     clNesTbl = sortrows(clNesTbl, ["Edge", "Dur"], {'ascend', 'descend'});
     clNesTbl.Nes = cumsum(clNesTbl.OnOff);

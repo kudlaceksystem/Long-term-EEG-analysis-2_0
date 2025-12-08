@@ -219,16 +219,28 @@ stg.figWidth2 = stg.figWidth1*2 + 0.5;
 stg.numSubj = numel(subjToPlot);
 
 % List the figures you wish to plot
-figDesc.Name = ["SzRaster"]; %#ok<NBRAK2>
+figDesc.Name = ["SzRaster"; "SzKaroly"];
 
 % SzRaster
-d.Name          = "SzRaster";
+kfig = 1;
+d.Name          = figDesc.Name(kfig);
 d.FigFcn        = "fig.figRaster"; % Function to use
 d.EventName     = "Seizure"; % Phenomenon to stem
 d.EventChar     = "DurDu"; % Characteristic to display as the height of the stems
 d.EventValidSrc = "Seizure21600";
 d.PositionCm    = [5, 5, stg.figWidth2, stg.numSubj*0.7 + 1.5]; % Position in centimeters
-figDesc.(figDesc.Name(1)) = d;
+figDesc.(figDesc.Name(kfig)) = d;
+clear d
+
+% SzKaroly
+kfig = kfig + 1;
+d.Name          = figDesc.Name(kfig);
+d.FigFcn        = "figKaroly"; % Function to use
+d.EventName     = "Seizure"; % Phenomenon to stem
+% % % % d.EventChar     = "DurDu"; % Characteristic to display as the height of the stems
+d.EventValidSrc = "Seizure21600";
+d.PositionCm    = [5, 5, stg.figWidth2, stg.numSubj*0.7 + 1.5]; % Position in centimeters
+figDesc.(figDesc.Name(kfig)) = d;
 clear d
 
 
@@ -266,13 +278,13 @@ stg.plotSzCharCiFitAllPop   =  0; % Circadian profile
 % Seizure and signal characteristics in one figure
 stg.plotSaChar              =  0; % Just plot the data
 stg.plotSaCharCWT           =  0; % Continuous wavelet transform and wavelet coherence
-stg.plotSaCharWhFit         =  1; % Fit whole recording
+stg.plotSaCharWhFit         =  0; % Fit whole recording
 stg.plotSaCharWhFitAllPop   =  0; % Fit whole recording
 stg.plotSaCharCl            =  0; % Data during cluster
 stg.plotSaCharClFit         =  0; % Fit during cluster
 stg.plotSaCharClFitAllPop   =  0; % Fit during cluster
 % % % % % stg.clusterExampleMouseJc20190509_2 = 0;
-stg.plotSaCharCiFit         =  1; % Circadian profile
+stg.plotSaCharCiFit         =  0; % Circadian profile
 stg.plotSaCharCiFitAllPop   =  0; % Circadian profile
 % Signal characteristics
 stg.plotSiChar              =  0; % Just plot the data
@@ -291,7 +303,7 @@ stg.plotSiCharSz            =  0; % Raw data before and after the seizure
 stg.plotSiCharSzAllPop      =  0; % Raw data before and after the seizure
 stg.plotSiCharSzFit         =  0; % Line fit before and after the seizure
 stg.plotSiCharSzFitAllPop   =  0; % Line fit before and after the seizure
-stg.plotSiCharSzCur         =  1; % Curve fit after the seizure
+stg.plotSiCharSzCur         =  0; % Curve fit after the seizure
 stg.plotSiCharSzCurAllPop   =  0; % Curve fit after the seizure
 % Seizure and signal characteristics and filter-derived IED rate in one figure
 stg.plotSsChar              =  0; % Just plot the data
@@ -460,23 +472,15 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
         snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
         [subjInfo, ds, dp] = fcn.getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
         [clust, szBelongsToClust, clustStats] = fcn.getClusters(subjInfo, ds, dp, clDesc(1), ksubj);
-        %% %%%%%%%%%%%%%%%%%%%%%%
         %% TODO004 DO SUBJECT STATS LATER
-        % % % subjStats(ksubj, :) = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats); %#ok<SAGROW> 
-        %% %%%%%%%%%%%%%%%%%%%%%%
+        subjStats(ksubj, :) = subjectStats(stg, subjInfo, ds, dp, clustStats); %#ok<SAGROW>
 
         for kfig = 1 : numel(figDesc.Name)
             d = figDesc.(figDesc.Name(kfig));
             funcHandle = str2func(d.FigFcn); % Get function handle from the name of the function.
             funcHandle(stg, h, d, subjInfo, ds, dp, clust)
-
-
-
-
         end
         % % % % Seizure occurrence analysis
-        % % % plotSzRaster(subjInfo, szCharTbl, siCharTbl, clust, ksubj)
-        % % % plotSzKaroly(subjInfo, szCharTbl, siCharTbl, ksubj)
         % % % [szRate, szRateBinlen] = plotSzRate(subjInfo, szCharTbl, siCharTbl, ksubj); % szRate and binlen are used in the plotSzPsd function
         % % % [szPsdPax(ksubj, :), szPsd(ksubj, :)] = plotSzPsd(subjInfo, szRate, szRateBinlen, ksubj); %#ok<SAGROW>
         % % % [isiH{ksubj, 1}, isiStats(ksubj, :), isiHist(ksubj, :)] = plotSzIsiHist(subjInfo, szCharTbl, ksubj); %#ok<SAGROW>
@@ -603,10 +607,8 @@ printFigures
 %% %%%%%%%%%%%%%%%%%%%%%%%%%% %%
 
 % Plot seizure occurrence analyses
-function plotSzKaroly(subjInfo, szCharTbl, siCharTbl, ksubj)
-    global stg
-    global h
-    [plotTF, plotName] = createFigInd(3);
+function figKaroly(stg, h, d, subjInfo, ds, dp, clust)
+    h = createFigInd(stg, h, d.Name, 3)
     if plotTF
         % Calculate axes positions
         % % % % % % % % stg.margGlob = [1.8 0.6 0 0]; % Left, bottom, right, top
@@ -4943,30 +4945,54 @@ function [paxTbl, psdTbl, psdciTbl] = psdSiChar(siCharTbl)
     psdTbl = cell2table(psdpsd, "VariableNames", charToPlot);
     psdciTbl = cell2table(psdcipsdci, "VariableNames", charToPlot);
 end
-function stats = subjectStats(subjInfo, szCharTbl, siCharTbl, clustStats)
-    global stg
+function stats = subjectStats(stg, subjInfo, ds, dp, clustStats)
     stats = table;
     stats.Subject = subjInfo.subjNm;
-    % Seizure statistics
-    stats.observPer = subjInfo.anEndN - subjInfo.anStartN; % Observation period in days (not accounting for dropouts)
-    stats.szNum = length(szCharTbl.szOnsN);
-    % % % stats.szFreq = stats.szNum/stats.observPer; % This is wrong because it does not take into account the dropouts
-    colNames = szCharTbl.Properties.VariableNames;
-    for kc = 1 : numel(colNames)
-        if strcmp(colNames{kc}, 'szOnsN')
-            % % % stats.szIsiH = stg.withinSubjectStat(diff(szCharTbl.szOnsN)*24); % This is wrong because it does not take into account the dropouts
-        else
-            stats.(colNames{kc}) = stg.withinSubjectStat(szCharTbl.(colNames{kc}), 'omitmissing');
+    stats.observPer = subjInfo.anEndDt - subjInfo.anStartDt; % Observation period in days (not accounting for dropouts)
+    % Data to stem
+    fn = fieldnames(ds);
+    for kfn = 1 : numel(fn)
+        stats.([fn{kfn}, 'Num']) = height(ds.(fn{kfn}));
+        vn = ds.(fn{kfn}).Properties.VariableNames;
+        for kvn = 1 : numel(vn)
+            if strcmp(vn{kvn}, 'OnsDt') % Mean or median of onset times is irrelevant
+                continue
+            end
+            stats.([fn{kfn}, vn{kvn}]) = stg.withinSubjectStat(ds.(fn{kfn}).(vn{kvn}));
         end
     end
-    colNames = clustStats.Properties.VariableNames;
-    for kc = 1 : numel(colNames)
-        stats.(colNames{kc}) = clustStats.(colNames{kc});
+    % Data to plot
+    fn = fieldnames(dp);
+    for kfn = 1 : numel(fn)
+        vn = dp.(fn{kfn}).Properties.VariableNames;
+        for kvn = 1 : numel(vn)
+            if strcmp(vn{kvn}, 'tax') % Mean or median of onset times is irrelevant
+                continue
+            end
+            stats.([fn{kfn}, vn{kvn}]) = stg.withinSubjectStat(dp.(fn{kfn}).(vn{kvn}), 'omitnan')
+        end
     end
-    colNames = siCharTbl.Properties.VariableNames;
-    for kc = 6 : numel(colNames)
-        stats.(colNames{kc}) = stg.withinSubjectStat(siCharTbl.(colNames{kc}), 'omitmissing');
-    end
+% % % % % % % subjInfo
+% % % % % % % 
+% % % % % % % 
+% % % % % % %     % % stats.szNum = length(szCharTbl.szOnsN);
+% % % % % % %     % % % stats.szFreq = stats.szNum/stats.observPer; % This is wrong because it does not take into account the dropouts
+% % % % % % %     colNames = szCharTbl.Properties.VariableNames;
+% % % % % % %     for kc = 1 : numel(colNames)
+% % % % % % %         if strcmp(colNames{kc}, 'szOnsN')
+% % % % % % %             % % % stats.szIsiH = stg.withinSubjectStat(diff(szCharTbl.szOnsN)*24); % This is wrong because it does not take into account the dropouts
+% % % % % % %         else
+% % % % % % %             stats.(colNames{kc}) = stg.withinSubjectStat(szCharTbl.(colNames{kc}), 'omitmissing');
+% % % % % % %         end
+% % % % % % %     end
+% % % % % % %     colNames = clustStats.Properties.VariableNames;
+% % % % % % %     for kc = 1 : numel(colNames)
+% % % % % % %         stats.(colNames{kc}) = clustStats.(colNames{kc});
+% % % % % % %     end
+% % % % % % %     colNames = siCharTbl.Properties.VariableNames;
+% % % % % % %     for kc = 6 : numel(colNames)
+% % % % % % %         stats.(colNames{kc}) = stg.withinSubjectStat(siCharTbl.(colNames{kc}), 'omitmissing');
+% % % % % % %     end
 end
 function [fitTbl, ed, xxTbl, yyTbl, xxFitTbl, yyFitTbl] = fitSzCharWh(subjInfo, szCharTbl, siCharTbl)
     % subjInfo ... used to get date of birth (dob) and period of monitoring
@@ -6100,15 +6126,16 @@ function [rmsnrmse, rho, pval, rmsnrmsePop, rhoPop, pvalPop] = simulatedDataSimi
 end
 
 % Plotting functions
-function [plotTF, plotName] = createFigInd(multHe)
+% % % % % % % % % function [plotTF, plotName] = createFigInd(multHe)
+function h = createFigInd(stg, h, figName, multHe)
     % Create figure for plots of individual subjects
     % If stg.plotXXX related to the calling function is true, creates figure and stores it in h.f structure
     % Based on the number of subjects, it decides on the optimal size of the figure
     % multHe .... multiplier of height, provided by the calling function
     % ret ....... true if stg.plotXXX is false so the calling function will know it should not procede
     % plotName .. char array derived from the name of the calling function
-    global stg
-    global h
+    % % % % % % % % % % global stg
+    % % % % % % % % global h
     st = dbstack;
     callerName = st(2).name;
     plotName = [lower(callerName(5)), callerName(6 : end)];
