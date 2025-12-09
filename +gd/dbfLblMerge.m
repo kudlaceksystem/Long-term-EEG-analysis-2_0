@@ -3,7 +3,6 @@ function lblSet = dbfLblMerge(lblSet, minSeparationS, pointTF)
     % lblSet ........... label set in which labels closer than minSeparationS will be merged
     % minSeparationS ... minimum separation to keep them separate, if closer, merge
     % instant .......... if the label is of type "point", it has no duration, so we will set End = Start
-    lblSet
     lblSet = sortrows(lblSet, "Start");
     nummrk = height(lblSet); % Number of markers
     mergeWithPreviousTF = false(nummrk, 1);

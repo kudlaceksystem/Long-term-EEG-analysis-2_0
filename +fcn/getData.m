@@ -240,14 +240,20 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                             case "file"
                                 if ~isempty(binTables.(nm)) % If it is not empty, sum over the first dimension.
                                     funcHandle = str2func(d.CalcFcn(2));
+                                    warning('off', 'MATLAB:table:RowsAddedExistingVars')
                                     binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables.(nm).(colnm), 1);
+                                    warning('on', 'MATLAB:table:RowsAddedExistingVars')
                                 else % If it is empty, the function sum would create one NaN in each cell of the table. If we process >1 channel, a single NaN would be inconsistent with the dimensions of other cells.
+                                    warning('off', 'MATLAB:table:RowsAddedExistingVars')
                                     binTableFinal.(nm).(colnm)(1, 1 : numch) = NaN(1, numel(dp.(nm).(colnm)(1, :)));
+                                    warning('on', 'MATLAB:table:RowsAddedExistingVars')
                                 end
                             case "bin"
                                 funcHandle = str2func(d.CalcFcn);
                                 numch = height(ll.sigInfo); % Number of channels
+                                warning('off', 'MATLAB:table:RowsAddedExistingVars')
                                 binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables, nm); % Each cell of the table can contain either a scalar or a row vector (if there are more channels)
+                                warning('on', 'MATLAB:table:RowsAddedExistingVars')
                         end
                     end
                     dp.(nm) = [dp.(nm); binTableFinal.(nm)]; % The binTableFinal has one row containg the data for current time bin. Append it to the main table dp.(nm)

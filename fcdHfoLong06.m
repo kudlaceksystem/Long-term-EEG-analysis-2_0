@@ -214,9 +214,10 @@ clDesc(1).ExclClAtEdges = true;
 
 %% Figures description
 % General settings
-stg.figWidth1 = 8.5;
-stg.figWidth2 = stg.figWidth1*2 + 0.5;
 stg.numSubj = numel(subjToPlot);
+stg.sbNCol = max(1, ceil(sqrt(stg.numSubj)) - 1); % Subplots of subjects: number of columns
+stg.figWidth1Cm = 8.5;
+stg.figWidth2Cm = stg.figWidth1Cm*2 + 0.5;
 
 % List the figures you wish to plot
 figDesc.Name = ["SzRaster"; "SzKaroly"];
@@ -228,7 +229,7 @@ d.FigFcn        = "fig.figRaster"; % Function to use
 d.EventName     = "Seizure"; % Phenomenon to stem
 d.EventChar     = "DurDu"; % Characteristic to display as the height of the stems
 d.EventValidSrc = "Seizure21600";
-d.PositionCm    = [5, 5, stg.figWidth2, stg.numSubj*0.7 + 1.5]; % Position in centimeters
+d.PositionCm    = [5, 5, stg.figWidth2Cm, stg.numSubj*0.7 + 1.5]; % Position in centimeters
 figDesc.(figDesc.Name(kfig)) = d;
 clear d
 
@@ -237,9 +238,9 @@ kfig = kfig + 1;
 d.Name          = figDesc.Name(kfig);
 d.FigFcn        = "figKaroly"; % Function to use
 d.EventName     = "Seizure"; % Phenomenon to stem
-% % % % d.EventChar     = "DurDu"; % Characteristic to display as the height of the stems
 d.EventValidSrc = "Seizure21600";
-d.PositionCm    = [5, 5, stg.figWidth2, stg.numSubj*0.7 + 1.5]; % Position in centimeters
+% % % d.PositionCm    = [5, 5, stg.figWidth2Cm, stg.numSubj*5 + 1.5]; % Position in centimeters
+d.subplotHeCm   = 5;
 figDesc.(figDesc.Name(kfig)) = d;
 clear d
 
@@ -253,72 +254,7 @@ clear d
 
 
 
-%% OLD SETTINGS
 
-
-%% Select plots
-% Seizure occurrence
-stg.plotSzRaster            =  0; % Raster plot of seizures
-stg.plotSzKaroly            =  0; % Plot according to Karoly et al., Brain 2016
-stg.plotSzRate              =  0; % Seizure rate which is used for the PSD computation
-stg.plotSzPsd               =  0; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
-stg.plotSzPsdAllPop         =  0; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
-stg.plotSzIsiHist           =  0; % Dropouts not accounted for
-stg.plotSzIsiHistAll        =  0; % Dropouts not accounted for
-stg.plotSzIsiHistPop        =  0; % Dropouts not accounted for
-% Seizure characteristics
-stg.plotSzChar              =  0; % Just plot the data
-stg.plotSzCharWhFit         =  0; % Fit whole recording
-stg.plotSzCharWhFitAllPop   =  0; % Fit whole recording
-stg.plotSzCharCl            =  0; % Fit during cluster
-stg.plotSzCharClFit         =  0; % Fit during cluster
-stg.plotSzCharClFitAllPop   =  0; % Fit during cluster
-stg.plotSzCharCiFit         =  0; % Circadian profile
-stg.plotSzCharCiFitAllPop   =  0; % Circadian profile
-% Seizure and signal characteristics in one figure
-stg.plotSaChar              =  0; % Just plot the data
-stg.plotSaCharCWT           =  0; % Continuous wavelet transform and wavelet coherence
-stg.plotSaCharWhFit         =  0; % Fit whole recording
-stg.plotSaCharWhFitAllPop   =  0; % Fit whole recording
-stg.plotSaCharCl            =  0; % Data during cluster
-stg.plotSaCharClFit         =  0; % Fit during cluster
-stg.plotSaCharClFitAllPop   =  0; % Fit during cluster
-% % % % % stg.clusterExampleMouseJc20190509_2 = 0;
-stg.plotSaCharCiFit         =  0; % Circadian profile
-stg.plotSaCharCiFitAllPop   =  0; % Circadian profile
-% Signal characteristics
-stg.plotSiChar              =  0; % Just plot the data
-stg.plotSiCharPsd           =  0; % Power spectral density
-stg.plotSiCharPsdAllPop     =  0; % Power spectral density
-stg.plotSiCharWhFit         =  0; % Fit whole recording
-stg.plotSiCharWhFitAllPop   =  0; % Fit whole recording
-stg.plotSiCharCl            =  0; % Raw data before, during and after the cluster
-stg.plotSiCharClAllPop      =  0; % Raw data before, during and after the cluster
-stg.plotSiCharClFit         =  0; % Fit before, during and after the cluster
-stg.plotSiCharClFitAllPop   =  0; % Fit before, during and after the cluster
-stg.plotSiCharCiFit         =  0; % Circadian profile
-stg.plotSiCharCiFitAllPop   =  0; % Circadian profile
-stg.plotSiCharSzBeAfVsOther =  0; % Compare the IED rate around seizure (before or after) vs. at other times (added in rev01)
-stg.plotSiCharSz            =  0; % Raw data before and after the seizure
-stg.plotSiCharSzAllPop      =  0; % Raw data before and after the seizure
-stg.plotSiCharSzFit         =  0; % Line fit before and after the seizure
-stg.plotSiCharSzFitAllPop   =  0; % Line fit before and after the seizure
-stg.plotSiCharSzCur         =  0; % Curve fit after the seizure
-stg.plotSiCharSzCurAllPop   =  0; % Curve fit after the seizure
-% Seizure and signal characteristics and filter-derived IED rate in one figure
-stg.plotSsChar              =  0; % Just plot the data
-stg.plotSfCharWhFit         =  0; % Fit whole recording
-stg.plotSfCharWhFitAllPop   =  0; % Fit whole recording
-stg.plotSfCharClFit         =  0; % Fit during cluster
-stg.plotSfCharClFitAllPop   =  0; % Fit during cluster
-stg.plotSfCharCiFit         =  0; % Circadian profile
-stg.plotSfCharCiFitAllPop   =  0; % Circadian profile
-stg.plotSimSim              =  0;
-stg.plotSsExplainConvolution=  0; % Explanation of convolution with individual responses
-stg.plotSsExplainSumOfExp   =  0;
-% General
-stg.showStat                =  0;
-stg.printFigures            =  0;
 
 
 colorfulSubjects = true;
@@ -407,12 +343,6 @@ stg.siCharBinWeights =  "iedValidS";
 stg.siCharNameShort =   "IED";
 
 
-if numel(stg.szCharToPlot) + numel(stg.siCharToPlot) < 6
-    stg.sbNCol = max(1, ceil(sqrt(stg.numSubj)) - 1); % Subplots of subjects: number of columns
-else
-    stg.sbNCol = max(1, ceil(sqrt(stg.numSubj))); % Subplots of subjects: number of columns
-end
-
 stg.saCharToPlot =      [stg.szCharToPlot; stg.siCharToPlot];
 stg.ssCharToPlot =      [stg.siCharToPlot; stg.siCharToPlot];
 stg.saCharYLim =        [stg.szCharYLim; stg.siCharYLim];
@@ -433,8 +363,7 @@ stg.simPopColor = [0.5 0.6 1];
 stg.axFontSize = 7;
 % stg.statFontSize = 6.66;
 stg.statFontSize = 7;
-stg.singleColumnWidth = 8.5;
-stg.figWidth2 = stg.singleColumnWidth*2 + 0.5;
+
 stg.margGlob = [2 0.5 0 0.2]; % Left, bottom, right, top
 stg.marg = [0.6 0.6 0.5 0.5]; % Left, bottom, right, top
 stg.margGlobCi = [0 0 0 0]; % Left, bottom, right, top
@@ -452,15 +381,27 @@ h = struct; h.f = []; h.a = [];
 
 
 %% Prepare empty figures
-figDesc.Name
-numel(figDesc.Name)
 for kfig = 1 : numel(figDesc.Name)
     fd = figDesc.(figDesc.Name(kfig));
-    h.f.(fd.Name) = figure("Name", fd.Name, "Units", stg.units, "Position", fd.PositionCm, "Color", [1 1 1]);
-    h.f.(fd.Name).Units = 'pixels';
+    nm = fd.Name;
+    if isfield(fd, "PositionCm")
+        h.f.(nm) = figure("Units", "centimeters", "Position", fd.PositionCm);
+    elseif isfield(fd, "subplotHeCm")
+        if stg.sbNCol == 1
+            wiCm = stg.figWidth1Cm;
+        elseif stg.sbNCol == 2
+            wiCm = (stg.figWidth1Cm + stg.figWidth2)/2;
+        else
+            wiCm = stg.figWidth2Cm;
+        end
+        heCm = min(25, fd.subplotHeCm*stg.sbNRow);
+        positionCm = [20, 2, wiCm, heCm];
+        h.f.(nm) = figure("Units", "centimeters", "Position", positionCm);
+    end
+    h.f.(nm).Units = "pixels";
+    h.f.(nm).Name = nm;
+    h.f.(nm).Color = [1 1 1];
 end
-
-
 
 
 %% Get data from each subject, analyze them
@@ -608,8 +549,8 @@ printFigures
 
 % Plot seizure occurrence analyses
 function figKaroly(stg, h, d, subjInfo, ds, dp, clust)
-    h = createFigInd(stg, h, d.Name, 3)
-    if plotTF
+    nm = d.Name;
+    figure(h.f.(nm))
         % Calculate axes positions
         % % % % % % % % stg.margGlob = [1.8 0.6 0 0]; % Left, bottom, right, top
         % % % % % % % % stg.marg = [0.7 0.7 0.5 0.5]; % Left, bottom, right, top
@@ -661,7 +602,6 @@ function figKaroly(stg, h, d, subjInfo, ds, dp, clust)
         % title(['Mouse ', num2str(ksubj)], 'Interpreter', 'none', 'Color', 'k', 'FontWeight', 'bold');
         h.a.(plotName)(ksubj, 1).FontSize = stg.axFontSize;
         h.a.(plotName)(ksubj, 1).Layer = 'top';
-    end
 end
 function [szRate, binlen] = plotSzRate(subjInfo, szCharTbl, siCharTbl, ksubj)
     global stg
@@ -9128,6 +9068,75 @@ function [Pos]=tscan(ha,wdt,hgt,tol,stickytol,hl) %#ok<INUSD>
 end
 
 % end
+
+
+% % % % % % % % % % % % % % % % %% OLD SETTINGS
+% % % % % % % % % % % % % % % % 
+% % % % % % % % % % % % % % % % 
+% % % % % % % % % % % % % % % % %% Select plots
+% % % % % % % % % % % % % % % % % Seizure occurrence
+% % % % % % % % % % % % % % % % stg.plotSzRaster            =  0; % Raster plot of seizures
+% % % % % % % % % % % % % % % % stg.plotSzKaroly            =  0; % Plot according to Karoly et al., Brain 2016
+% % % % % % % % % % % % % % % % stg.plotSzRate              =  0; % Seizure rate which is used for the PSD computation
+% % % % % % % % % % % % % % % % stg.plotSzPsd               =  0; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
+% % % % % % % % % % % % % % % % stg.plotSzPsdAllPop         =  0; % Dropouts accounted for in szRate but it is impossible to compensate for them in the PSD
+% % % % % % % % % % % % % % % % stg.plotSzIsiHist           =  0; % Dropouts not accounted for
+% % % % % % % % % % % % % % % % stg.plotSzIsiHistAll        =  0; % Dropouts not accounted for
+% % % % % % % % % % % % % % % % stg.plotSzIsiHistPop        =  0; % Dropouts not accounted for
+% % % % % % % % % % % % % % % % % Seizure characteristics
+% % % % % % % % % % % % % % % % stg.plotSzChar              =  0; % Just plot the data
+% % % % % % % % % % % % % % % % stg.plotSzCharWhFit         =  0; % Fit whole recording
+% % % % % % % % % % % % % % % % stg.plotSzCharWhFitAllPop   =  0; % Fit whole recording
+% % % % % % % % % % % % % % % % stg.plotSzCharCl            =  0; % Fit during cluster
+% % % % % % % % % % % % % % % % stg.plotSzCharClFit         =  0; % Fit during cluster
+% % % % % % % % % % % % % % % % stg.plotSzCharClFitAllPop   =  0; % Fit during cluster
+% % % % % % % % % % % % % % % % stg.plotSzCharCiFit         =  0; % Circadian profile
+% % % % % % % % % % % % % % % % stg.plotSzCharCiFitAllPop   =  0; % Circadian profile
+% % % % % % % % % % % % % % % % % Seizure and signal characteristics in one figure
+% % % % % % % % % % % % % % % % stg.plotSaChar              =  0; % Just plot the data
+% % % % % % % % % % % % % % % % stg.plotSaCharCWT           =  0; % Continuous wavelet transform and wavelet coherence
+% % % % % % % % % % % % % % % % stg.plotSaCharWhFit         =  0; % Fit whole recording
+% % % % % % % % % % % % % % % % stg.plotSaCharWhFitAllPop   =  0; % Fit whole recording
+% % % % % % % % % % % % % % % % stg.plotSaCharCl            =  0; % Data during cluster
+% % % % % % % % % % % % % % % % stg.plotSaCharClFit         =  0; % Fit during cluster
+% % % % % % % % % % % % % % % % stg.plotSaCharClFitAllPop   =  0; % Fit during cluster
+% % % % % % % % % % % % % % % % % % % % % stg.clusterExampleMouseJc20190509_2 = 0;
+% % % % % % % % % % % % % % % % stg.plotSaCharCiFit         =  0; % Circadian profile
+% % % % % % % % % % % % % % % % stg.plotSaCharCiFitAllPop   =  0; % Circadian profile
+% % % % % % % % % % % % % % % % % Signal characteristics
+% % % % % % % % % % % % % % % % stg.plotSiChar              =  0; % Just plot the data
+% % % % % % % % % % % % % % % % stg.plotSiCharPsd           =  0; % Power spectral density
+% % % % % % % % % % % % % % % % stg.plotSiCharPsdAllPop     =  0; % Power spectral density
+% % % % % % % % % % % % % % % % stg.plotSiCharWhFit         =  0; % Fit whole recording
+% % % % % % % % % % % % % % % % stg.plotSiCharWhFitAllPop   =  0; % Fit whole recording
+% % % % % % % % % % % % % % % % stg.plotSiCharCl            =  0; % Raw data before, during and after the cluster
+% % % % % % % % % % % % % % % % stg.plotSiCharClAllPop      =  0; % Raw data before, during and after the cluster
+% % % % % % % % % % % % % % % % stg.plotSiCharClFit         =  0; % Fit before, during and after the cluster
+% % % % % % % % % % % % % % % % stg.plotSiCharClFitAllPop   =  0; % Fit before, during and after the cluster
+% % % % % % % % % % % % % % % % stg.plotSiCharCiFit         =  0; % Circadian profile
+% % % % % % % % % % % % % % % % stg.plotSiCharCiFitAllPop   =  0; % Circadian profile
+% % % % % % % % % % % % % % % % stg.plotSiCharSzBeAfVsOther =  0; % Compare the IED rate around seizure (before or after) vs. at other times (added in rev01)
+% % % % % % % % % % % % % % % % stg.plotSiCharSz            =  0; % Raw data before and after the seizure
+% % % % % % % % % % % % % % % % stg.plotSiCharSzAllPop      =  0; % Raw data before and after the seizure
+% % % % % % % % % % % % % % % % stg.plotSiCharSzFit         =  0; % Line fit before and after the seizure
+% % % % % % % % % % % % % % % % stg.plotSiCharSzFitAllPop   =  0; % Line fit before and after the seizure
+% % % % % % % % % % % % % % % % stg.plotSiCharSzCur         =  0; % Curve fit after the seizure
+% % % % % % % % % % % % % % % % stg.plotSiCharSzCurAllPop   =  0; % Curve fit after the seizure
+% % % % % % % % % % % % % % % % % Seizure and signal characteristics and filter-derived IED rate in one figure
+% % % % % % % % % % % % % % % % stg.plotSsChar              =  0; % Just plot the data
+% % % % % % % % % % % % % % % % stg.plotSfCharWhFit         =  0; % Fit whole recording
+% % % % % % % % % % % % % % % % stg.plotSfCharWhFitAllPop   =  0; % Fit whole recording
+% % % % % % % % % % % % % % % % stg.plotSfCharClFit         =  0; % Fit during cluster
+% % % % % % % % % % % % % % % % stg.plotSfCharClFitAllPop   =  0; % Fit during cluster
+% % % % % % % % % % % % % % % % stg.plotSfCharCiFit         =  0; % Circadian profile
+% % % % % % % % % % % % % % % % stg.plotSfCharCiFitAllPop   =  0; % Circadian profile
+% % % % % % % % % % % % % % % % stg.plotSimSim              =  0;
+% % % % % % % % % % % % % % % % stg.plotSsExplainConvolution=  0; % Explanation of convolution with individual responses
+% % % % % % % % % % % % % % % % stg.plotSsExplainSumOfExp   =  0;
+% % % % % % % % % % % % % % % % % General
+% % % % % % % % % % % % % % % % stg.showStat                =  0;
+% % % % % % % % % % % % % % % % stg.printFigures            =  0;
+
 
 % FINISHED Add tauH to printed stats output
 % FINISHED Problem in szChar circular. Sharp spike at midnight.
