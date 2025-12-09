@@ -124,7 +124,7 @@ d(1).VarName    = "ValidS";
 d(1).VarType    = "double";
 d(1).BinLenDu   = binlenDu;
 d(1).CalcLvl    = "file";
-d(1).CalcFcn    = "gd.dpfGetValidAmountCh";
+d(1).CalcFcn    = ["gd.dpfGetValidAmount", "sum"]; % If ClcLvl is "file", specify function to apply on individual files and function to merge data from multiple files to bin
 d(1).SrcData    = "Lbl";
 d(1).MainLbl    = szLbl;
 d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
@@ -136,7 +136,7 @@ d(2).VarName    = "Count";
 d(2).VarType    = "double";
 d(2).BinLenDu   = binlenDu;
 d(2).CalcLvl    = "file";
-d(2).CalcFcn    = "gd.dpfGetCountCh";
+d(2).CalcFcn    = ["gd.dpfGetCount", "sum"]; % If ClcLvl is "file", specify function to apply on individual files and function to merge data from multiple files to bin
 d(2).SrcData    = "Lbl";
 d(2).MainLbl    = szLbl;
 d(2).ExLblCh    = exLblCh; % Labels to exclude in individual channels
@@ -148,7 +148,7 @@ d(3).VarName    = "RatePh";
 d(3).VarType    = "double";
 d(3).BinLenDu   = binlenDu;
 d(3).CalcLvl    = "bin";
-d(3).CalcFcn    = "gd.dpbGetRatePhCh";
+d(3).CalcFcn    = "gd.dpbGetRatePh"; % If ClcLvl is "file", specify function to apply on individual files and function to merge data from multiple files to bin
 d(3).SrcData    = "Lbl";
 d(3).MainLbl    = szLbl;
 d(3).ExLblCh    = exLblCh; % Labels to exclude in individual channels
@@ -168,7 +168,7 @@ d(1).VarName    = "ValidS";
 d(1).VarType    = "double";
 d(1).BinLenDu   = binlenDu;
 d(1).CalcLvl    = "file";
-d(1).CalcFcn    = "gd.dpfGetValidAmountCh";
+d(1).CalcFcn    = ["gd.dpfGetValidAmountCh", "sum"];
 d(1).SrcData    = "Lbl";
 d(1).MainLbl    = "IED_Janca";
 d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
@@ -180,7 +180,7 @@ d(2).VarName    = "Count";
 d(2).VarType    = "double";
 d(2).BinLenDu   = binlenDu;
 d(2).CalcLvl    = "file";
-d(2).CalcFcn    = "gd.dpfGetCountCh";
+d(2).CalcFcn    = ["gd.dpfGetCountCh", "sum"];
 d(2).SrcData    = "Lbl";
 d(2).MainLbl    = "IED_Janca";
 d(2).ExLblCh    = exLblCh; % Labels to exclude in individual channels
@@ -4969,7 +4969,7 @@ function stats = subjectStats(stg, subjInfo, ds, dp, clustStats)
             if strcmp(vn{kvn}, 'tax') % Mean or median of onset times is irrelevant
                 continue
             end
-            stats.([fn{kfn}, vn{kvn}]) = stg.withinSubjectStat(dp.(fn{kfn}).(vn{kvn}), 'omitnan')
+            stats.([fn{kfn}, vn{kvn}]) = stg.withinSubjectStat(dp.(fn{kfn}).(vn{kvn}), 'omitnan');
         end
     end
 % % % % % % % subjInfo

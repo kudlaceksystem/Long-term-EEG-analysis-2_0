@@ -106,7 +106,6 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
         % Split the time into bins
         binDt = (anStartDt : binlenUnDu(kbinlen) : anEndDt)'; % Borders of bins in datenum
         numbin = numel(binDt) - 1; % Number of bins
-        % % % % % % % tax = binDt(2 : end);  % Each bin should be assigned the timestamp of its end because that is the moment we have had acquired (and processed) all data of the block.
         
         % Initialize the table in a field of the dp structure
         for kn = 1 : numel(dpDesc.Name)
@@ -209,7 +208,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                         for kchar = 1 : size(dpDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
                             d = dd(kchar); % Description of the current characteristic of the phenomenon
                             if d.CalcLvl == "file"
-                                funcHandle = str2func(d.CalcFcn);
+                                funcHandle = str2func(d.CalcFcn(1));
                                 colnm = d.VarName; % Column name
                                 numch = height(ll.sigInfo);
                                 switch d.SrcData
@@ -233,21 +232,20 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                 nm = dpDesc.Name(kn); % Name of the current phenomenon
                 dd = dpDesc.(nm); % Description of all the calculations on the current phenomenon
                 if dd(1).BinLenDu == binlenUnDu(kbinlen)
+                    binTableFinal.(nm) = binTables.(nm)([], :); % Initialize
                     for kchar = 1 : size(dpDesc.(nm), 2) % Fill in new rows for each characteristic of the phenomenon
                         d = dd(kchar); % Description of the current characteristic of the phenomenon
+                        colnm = d.VarName; % Column name
                         switch d.CalcLvl
                             case "file"
-                                if ~isempty(binTables.(nm)) % If it is not empty, sum over the first dimension (columns).
-                                    binTableFinal.(nm) = sum(binTables.(nm), 1);
-                                else % If it is empty, the function sum would create one NaN in each cell of the table, which would be inconsistent with the dimensions of other cells if we process more than one channel
-                                    for kcol = 1 : width(dp.(nm))
-                                        nn{1, kcol} = NaN(1, numel(dp.(nm){1, kcol})); %#ok<AGROW> % Create a cell array of NaNs to plug it in the binTables.(nm)
-                                    end
-                                    binTableFinal.(nm)(end, :) = nn; % Plug in the created NaN cells into the table. The NaNs have to be there because the row exists in the time axis dp.tax.
+                                if ~isempty(binTables.(nm)) % If it is not empty, sum over the first dimension.
+                                    funcHandle = str2func(d.CalcFcn(2));
+                                    binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables.(nm).(colnm), 1);
+                                else % If it is empty, the function sum would create one NaN in each cell of the table. If we process >1 channel, a single NaN would be inconsistent with the dimensions of other cells.
+                                    binTableFinal.(nm).(colnm)(1, 1 : numch) = NaN(1, numel(dp.(nm).(colnm)(1, :)));
                                 end
                             case "bin"
                                 funcHandle = str2func(d.CalcFcn);
-                                colnm = d.VarName; % Column name
                                 numch = height(ll.sigInfo); % Number of channels
                                 binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables, nm); % Each cell of the table can contain either a scalar or a row vector (if there are more channels)
                         end

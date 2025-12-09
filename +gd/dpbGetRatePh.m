@@ -1,4 +1,9 @@
-function r = dpbGetRatePhCh(binTbl, nm)
+function r = dpbGetRatePh(binTbl, nm)
+    
+
+fn = fieldnames(binTbl);
+asdf = binTbl.(fn{1})
+
     % Get event rate in the unit of events per hour.
     % binTbl ....... dp structure containing only data belonging to given bin
     % nm ........... name of the dp field to work on

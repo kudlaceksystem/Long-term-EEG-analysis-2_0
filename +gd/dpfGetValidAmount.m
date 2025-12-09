@@ -1,4 +1,4 @@
-function validS = dpfGetValidAmountCh(ll, d, binLimDt)
+function validS = dpfGetValidAmount(ll, d, binLimDt)
     % ll ........... contents of OSEL label file, i.e. sigInfo, lblDef, lblSet
     % d ............ relevant line of the dpDesc structure
     % binLimDt ..... start and end of the current bin (markers outside the bin will be ignored)
@@ -34,4 +34,5 @@ function validS = dpfGetValidAmountCh(ll, d, binLimDt)
     else
         validS = NaN(1, numch);
     end
+    validS = min(validS, [], 'omitnan');
 end
