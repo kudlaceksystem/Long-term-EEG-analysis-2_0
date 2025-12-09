@@ -14,8 +14,8 @@ function [lblSetRelevant, lblSetInval] = dpfLblRelevant(ll, d, binLimDt)
         end
         lblSetRelevantCh = lblSetRelevantCh(lblSetRelevantCh.Start > binLimDt(1) & lblSetRelevantCh.Start < binLimDt(2), :);
         lblSetInvalCh = lblSetInvalCh(lblSetInvalCh.Start > binLimDt(1) & lblSetInvalCh.Start < binLimDt(2), :);
-        lblSetRelevantCh.Channel = 1;
-        lblSetInvalCh.Channel = 1;
+        lblSetRelevantCh.Channel = ones(height(lblSetRelevantCh), 1);
+        lblSetInvalCh.Channel = ones(height(lblSetRelevantCh), 1);
         lblSetRelevant = [lblSetRelevant; lblSetRelevantCh]; %#ok<AGROW>
         lblSetInval = [lblSetInval; lblSetInvalCh]; %#ok<AGROW>
     end
