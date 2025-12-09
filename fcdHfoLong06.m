@@ -216,8 +216,15 @@ clDesc(1).ExclClAtEdges = true;
 % General settings
 stg.numSubj = numel(subjToPlot);
 stg.sbNCol = max(1, ceil(sqrt(stg.numSubj)) - 1); % Subplots of subjects: number of columns
+stg.sbNRow = ceil(stg.numSubj/stg.sbNCol); % Subplots subjects - number of rows
 stg.figWidth1Cm = 8.5;
 stg.figWidth2Cm = stg.figWidth1Cm*2 + 0.5;
+stg.margGlob = [2 0.5 0 0.2]; % Left, bottom, right, top
+stg.marg = [0.6 0.6 0.5 0.5]; % Left, bottom, right, top
+stg.margGlobCi = [0 0 0 0]; % Left, bottom, right, top
+stg.margCi = [0.1 0.5 0.1 0.5]; % Left, bottom, right, top
+stg.margGlobSlopeBox = [0 0 0 0];
+stg.margSlopeBox = [0.15 0.1 0.1 0.3];
 
 % List the figures you wish to plot
 figDesc.Name = ["SzRaster"; "SzKaroly"];
@@ -236,7 +243,7 @@ clear d
 % SzKaroly
 kfig = kfig + 1;
 d.Name          = figDesc.Name(kfig);
-d.FigFcn        = "figKaroly"; % Function to use
+d.FigFcn        = "fig.figKaroly"; % Function to use
 d.EventName     = "Seizure"; % Phenomenon to stem
 d.EventValidSrc = "Seizure21600";
 % % % d.PositionCm    = [5, 5, stg.figWidth2Cm, stg.numSubj*5 + 1.5]; % Position in centimeters
@@ -280,15 +287,6 @@ stg.isiHistYScale = "log";
 stg.isiPlotExpFitTF = false;
 stg.isiPlotPwlFitTF = false;
 
-% % % % Seizure cluster definition
-% % % stg.MinNumInClus = 4; % Minimal required number of seizures in cluster
-% % % stg.InterclusterMultiplier = 2; % The intercluster period must be stg.InterclusterMultiplier times longer than the longest intracluster ISI
-% % % stg.MaxClusterDur = 7; % Maximum cluster duration in days
-% % % stg.MaxWithinClusIeiD = 2; % In days
-% % % stg.parNm = {'isi', 'dur', 'rac', 'pow', 'pos'}; % Names of parameters to correlate with intracluster time
-
-% Signal characteristics
-% % % % % stg.dpBinLenS = 6*3600;
 
 stg.leadSzTimeS = 4*3600; % Duration of the period before the seizure that must be seizure free
 stg.fitSzDurS = 2*3600; % Duration of the fitted region before or after the seizure in seconds
@@ -354,7 +352,6 @@ stg.szCharHe = 1.5 + 2/numel(stg.szCharToPlot); % Height of the subplot of a sin
 stg.siCharHe = 1.5 + 2/numel(stg.siCharToPlot); % Height of the subplot of a single signal characteristic
 stg.saCharHe = 1.5 + 2/numel(stg.saCharToPlot); % Height of the subplot of a single signal characteristic
 stg.ssCharHe = 1.5 + 2/numel(stg.saCharToPlot); % Height of the subplot of a single signal characteristic
-stg.sbNRow = ceil(stg.numSubj/stg.sbNCol); % Subplots subjects - number of rows
 stg.fitColor = [1 0.7 0; 0.0 1.0 0.0; 0.0 0.0 1.0];
 stg.curColor = [0.2 0.8 0.4];
 stg.simColor = [0.3 1 0.1];
@@ -364,12 +361,7 @@ stg.axFontSize = 7;
 % stg.statFontSize = 6.66;
 stg.statFontSize = 7;
 
-stg.margGlob = [2 0.5 0 0.2]; % Left, bottom, right, top
-stg.marg = [0.6 0.6 0.5 0.5]; % Left, bottom, right, top
-stg.margGlobCi = [0 0 0 0]; % Left, bottom, right, top
-stg.margCi = [0.1 0.5 0.1 0.5]; % Left, bottom, right, top
-stg.margGlobSlopeBox = [0 0 0 0];
-stg.margSlopeBox = [0.15 0.1 0.1 0.3];
+
 stg.units = 'centimeters';
 stg.box = 'on';
 stg.lnWiFit = 0.5;
@@ -379,33 +371,10 @@ stg.subjColorSubjMeanMult = 0;
 global h %#ok<*GVMIS>
 h = struct; h.f = []; h.a = [];
 
-
-%% Prepare empty figures
-for kfig = 1 : numel(figDesc.Name)
-    fd = figDesc.(figDesc.Name(kfig));
-    nm = fd.Name;
-    if isfield(fd, "PositionCm")
-        h.f.(nm) = figure("Units", "centimeters", "Position", fd.PositionCm);
-    elseif isfield(fd, "subplotHeCm")
-        if stg.sbNCol == 1
-            wiCm = stg.figWidth1Cm;
-        elseif stg.sbNCol == 2
-            wiCm = (stg.figWidth1Cm + stg.figWidth2)/2;
-        else
-            wiCm = stg.figWidth2Cm;
-        end
-        heCm = min(25, fd.subplotHeCm*stg.sbNRow);
-        positionCm = [20, 2, wiCm, heCm];
-        h.f.(nm) = figure("Units", "centimeters", "Position", positionCm);
-    end
-    h.f.(nm).Units = "pixels";
-    h.f.(nm).Name = nm;
-    h.f.(nm).Color = [1 1 1];
-end
-
-
-%% Get data from each subject, analyze them
+%% Prepare for plotting
 setFormat; % Set plot colors etc.
+h = fig.prepareFigures(stg, h, figDesc);
+%% Get data from each subject, analyze them
 dobTable = fcn.getSubjectList('Video-EEG data.xlsx'); % Get list of subjects including their date of birth
 if analyzeIndividualSubjects % If you have all the subject data in RAM, you may want to skip loading individual subjects
     for ksubj = 1 : stg.numSubj
@@ -548,61 +517,68 @@ printFigures
 %% %%%%%%%%%%%%%%%%%%%%%%%%%% %%
 
 % Plot seizure occurrence analyses
-function figKaroly(stg, h, d, subjInfo, ds, dp, clust)
-    nm = d.Name;
-    figure(h.f.(nm))
-        % Calculate axes positions
-        % % % % % % % % stg.margGlob = [1.8 0.6 0 0]; % Left, bottom, right, top
-        % % % % % % % % stg.marg = [0.7 0.7 0.5 0.5]; % Left, bottom, right, top
-        [spx, spy, spWi, spHe, ~, numc] = getSubplotXYWH(plotName, stg.margGlob, stg.marg);
-        h.f.(plotName).Units = stg.units;
-        h.a.(plotName)(ksubj, 1) = axes('Units', stg.units, 'Position', ...
-            [spx(mod(ksubj - 1, numc) + 1), spy(ceil(ksubj/numc)), spWi, spHe], 'NextPlot', 'add');
-    
-        % Signal OK marker
-        [~, ~, xx] = getSzOkXY(subjInfo, siCharTbl);
-        dxx = xx(1, 2 : end) - xx(2, 1 : end - 1);
-        dropStSub = find(dxx > 1/24);
-        drop(1, :) = xx(2, dropStSub);
-        drop(2, :) = xx(1, dropStSub + 1);
-        clear x y
-    
-        % Karoly plot proper
-        % Prepare sz data
-        onsD = (szCharTbl.szOnsN - subjInfo.dob);
-        x = rem(onsD, 1)*24;
-        y = floor(onsD);
-        ymi = min(y);
-        yma = max(y);
-        % Night time shading
-        patch([0 6 6 0], [ymi - 1, ymi - 1, yma + 1, yma + 1], 0.92*[1 1 1], 'EdgeColor', 'none');
-        hold on
-        patch([18 24 24 18], [ymi - 1, ymi - 1, yma + 1, yma + 1], 0.92*[1 1 1], 'EdgeColor', 'none');
-    
-        % scatter(x, y, 5*ones(size(x)), 'k', 'Marker', 'o', 'MarkerFaceColor', 'k')
-        scatter(x, y, 5*ones(size(x)), 'filled', 'MarkerEdgeColor', stg.subjColor(ksubj, :), 'MarkerFaceColor', stg.subjColor(ksubj, :))
-    
-        % Dropouts
-        for kpa = 1 : size(drop, 2)
-            patch([0 24 24 0], [drop(1, kpa), drop(1, kpa), drop(2, kpa), drop(2, kpa)], 'k', 'EdgeColor', 'none')
-        end
-    
-        h.a.(plotName)(ksubj).XLim = [0 24];
-        h.a.(plotName)(ksubj).YLim = [ymi - 1, yma + 1];
-        h.a.(plotName)(ksubj).XTick = [0 12 24];
-        h.a.(plotName)(ksubj).Box = stg.box;
-        if ksubj > stg.numSubj - stg.sbNCol
-            xlabel('Time of day (hours)')
-        end
-        if mod(ksubj - 1, stg.sbNCol) == 0
-            ylabel('Age (days)')
-        end
-        title(subjInfo.subjNm, 'Interpreter', 'none', 'Color', 'k', 'FontWeight', 'bold');
-        % title(subjInfo.subjNm, 'Interpreter', 'none', 'Color', stg.subjColor(ksubj, :), 'FontWeight', 'bold');
-        % title(['Mouse ', num2str(ksubj)], 'Interpreter', 'none', 'Color', 'k', 'FontWeight', 'bold');
-        h.a.(plotName)(ksubj, 1).FontSize = stg.axFontSize;
-        h.a.(plotName)(ksubj, 1).Layer = 'top';
-end
+% % % % % % % % % % % % % % function figKaroly(stg, h, d, subjInfo, ds, dp, clust)
+% % % % % % % % % % % % % %     nm = d.Name;
+% % % % % % % % % % % % % % 
+% % % % % % % % % % % % % %     figure(h.f.(nm))
+% % % % % % % % % % % % % %     [spx, spy, spWi, spHe, ~, numc] = getSubplotXYWH(stg, h, d, stg.margGlob, stg.marg);
+% % % % % % % % % % % % % %     h.f.(nm).Units = "centimeters";
+% % % % % % % % % % % % % %     h.a.(nm)(subjInfo.ksubj, 1) = axes("Units", "centimeters", "Position", ...
+% % % % % % % % % % % % % %         [spx(mod(subjInfo.ksubj - 1, numc) + 1), spy(ceil(subjInfo.ksubj/numc)), spWi, spHe], "NextPlot", "add");
+% % % % % % % % % % % % % % 
+% % % % % % % % % % % % % %     % Signal OK marker
+% % % % % % % % % % % % % %     [~, ~, xx] = fig.getValidXY(subjInfo, d, dp);
+% % % % % % % % % % % % % %     dxx = xx(1, 2 : end) - xx(2, 1 : end - 1);
+% % % % % % % % % % % % % %     dropStSub = find(dxx > 1/24);
+% % % % % % % % % % % % % %     drop(1, :) = xx(2, dropStSub);
+% % % % % % % % % % % % % %     drop(2, :) = xx(1, dropStSub + 1);
+% % % % % % % % % % % % % %     clear x y
+% % % % % % % % % % % % % % 
+% % % % % % % % % % % % % %     % Karoly plot proper
+% % % % % % % % % % % % % %     % Prepare sz data
+% % % % % % % % % % % % % %     numev = numel(ds.(d.EventName).OnsDt);
+% % % % % % % % % % % % % %     x = days(ds.(d.EventName).OnsDt - subjInfo.dob); % X data common for polynomial fitting and plotting
+% % % % % % % % % % % % % %     x = repelem(x, 3);
+% % % % % % % % % % % % % %     y1 = zeros(numev, 1);
+% % % % % % % % % % % % % %     y = NaN(3*numev, 1);
+% % % % % % % % % % % % % %     y(1 : 3 : 3*numev) = y1 + (stg.numSubj - subjInfo.ksubj)*2 + 0.5;
+% % % % % % % % % % % % % %     y(2 : 3 : 3*numev) = y1 + (stg.numSubj - subjInfo.ksubj)*2 + 1.5;
+% % % % % % % % % % % % % %     y(3 : 3 : 3*numev) = NaN(numev, 1);
+% % % % % % % % % % % % % %     h.p.(nm)(subjInfo.ksubj, 2) = plot(x, y, 'Marker', 'none', 'LineWidth', 0.5, 'Color', stg.subjColor(subjInfo.ksubj, :));
+% % % % % % % % % % % % % %     clear x y
+% % % % % % % % % % % % % % 
+% % % % % % % % % % % % % %     onsD = days(ds.(d.EventName).OnsDt - subjInfo.dob);
+% % % % % % % % % % % % % %     x = rem(onsD, 1)*24;
+% % % % % % % % % % % % % %     y = floor(onsD);
+% % % % % % % % % % % % % %     ymi = min(y);
+% % % % % % % % % % % % % %     yma = max(y);
+% % % % % % % % % % % % % %     % Night time shading
+% % % % % % % % % % % % % %     patch([0 6 6 0], [ymi - 1, ymi - 1, yma + 1, yma + 1], 0.92*[1 1 1], 'EdgeColor', 'none');
+% % % % % % % % % % % % % %     hold on
+% % % % % % % % % % % % % %     patch([18 24 24 18], [ymi - 1, ymi - 1, yma + 1, yma + 1], 0.92*[1 1 1], 'EdgeColor', 'none');
+% % % % % % % % % % % % % %     % % % scatter(x, y, 5*ones(size(x)), 'k', 'Marker', 'o', 'MarkerFaceColor', 'k')
+% % % % % % % % % % % % % %     scatter(x, y, 5*ones(size(x)), 'filled', 'MarkerEdgeColor', stg.subjColor(subjInfo.ksubj, :), 'MarkerFaceColor', stg.subjColor(subjInfo.ksubj, :))
+% % % % % % % % % % % % % % 
+% % % % % % % % % % % % % %     % Dropouts
+% % % % % % % % % % % % % %     for kpa = 1 : size(drop, 2)
+% % % % % % % % % % % % % %         patch([0 24 24 0], [drop(1, kpa), drop(1, kpa), drop(2, kpa), drop(2, kpa)], 'k', 'EdgeColor', 'none')
+% % % % % % % % % % % % % %     end
+% % % % % % % % % % % % % %         h.a.(nm)(subjInfo.ksubj).XLim = [0 24];
+% % % % % % % % % % % % % %         h.a.(nm)(subjInfo.ksubj).YLim = [ymi - 1, yma + 1];
+% % % % % % % % % % % % % %         h.a.(nm)(subjInfo.ksubj).XTick = [0 12 24];
+% % % % % % % % % % % % % %         h.a.(nm)(subjInfo.ksubj).Box = stg.box;
+% % % % % % % % % % % % % %         if subjInfo.ksubj > stg.numSubj - stg.sbNCol
+% % % % % % % % % % % % % %             xlabel('Time of day (hours)')
+% % % % % % % % % % % % % %         end
+% % % % % % % % % % % % % %         if mod(subjInfo.ksubj - 1, stg.sbNCol) == 0
+% % % % % % % % % % % % % %             ylabel('Age (days)')
+% % % % % % % % % % % % % %         end
+% % % % % % % % % % % % % %         title(subjInfo.subjNm, 'Interpreter', 'none', 'Color', 'k', 'FontWeight', 'bold');
+% % % % % % % % % % % % % %         % title(subjInfo.subjNm, 'Interpreter', 'none', 'Color', stg.subjColor(ksubj, :), 'FontWeight', 'bold');
+% % % % % % % % % % % % % %         % title(['Mouse ', num2str(ksubj)], 'Interpreter', 'none', 'Color', 'k', 'FontWeight', 'bold');
+% % % % % % % % % % % % % %         h.a.(nm)(subjInfo.ksubj, 1).FontSize = stg.axFontSize;
+% % % % % % % % % % % % % %         h.a.(nm)(subjInfo.ksubj, 1).Layer = 'top';
+% % % % % % % % % % % % % % end
 function [szRate, binlen] = plotSzRate(subjInfo, szCharTbl, siCharTbl, ksubj)
     global stg
     global h
@@ -7325,59 +7301,6 @@ function setFormat
 end
 
 % Helper functions
-function [spx, spy, spWi, spHe, numr, numc] = getSubplotXYWH(plotName, margGlob, marg) % Used in plotSiChar
-    % Note that the term subplot means a room for all possible plots of a given subject, not necessarily a single subplot
-    % plotName .. name of the plot derived from the name of the calling functions
-    % margGlob .. margins around the whole page, left, bottom, right, top
-    % marg ...... margins around each subject's plots, left, bottom, right, top
-    % spx ....... x-coordinate of lower left corner of the subjects' subplots in the figure, it is a vector, ksubj-th subject will use spx(mod(ksubj - 1, numc) + 1)
-    % spy ....... y-coordinate of lower left corner of the subjects' subplots in the figure, it is a vector, ksubj-th subject will use spy(ceil(ksubj/numc))
-    % spWi ...... width of subjects subplot
-    % spHe ...... height of subjects subplot
-    % numr ...... in how many rows the subjects will be plotted
-    % numc ...... in how many columns the subjects will be plotted
-    global stg
-    global h
-    h.f.(plotName).Units = stg.units;
-    figPos = h.f.(plotName).Position;
-    if contains(plotName, 'All') || contains(plotName, 'Pop')
-        numc = 1;
-        numr = 1;
-    else
-        numc = stg.sbNCol;
-        numr = stg.sbNRow;
-    end
-    splWi = (figPos(3) - margGlob(1) - margGlob(3))/numc; % Subplot including labels width
-    spWi = splWi - marg(1) - marg(3); % Subplot width
-    splHe = (figPos(4) - margGlob(2) - margGlob(4))/numr; % Subplot including labels height
-    spHe = splHe - marg(2) - marg(4); % Subplot height
-    spx = (0 : numc-1)*splWi + margGlob(1) + marg(1); % Subplot - x-coordinate of its lower left corner
-    spy = (numr-1 : -1 : 0)*splHe + margGlob(2) + marg(2); % Subplot - y-coordinate of its lower left corner
-end
-% % % % % % % % % % % % % % % function [x, y, xx] = getValidXY(subjInfo, d, dp)
-% % % % % % % % % % % % % % %     % x .... [blockStart, blockEnd, NaN, blockStart, blockEnd, NaN, ...], time from the date of birth (dob)
-% % % % % % % % % % % % % % %     % y .... [0, 0, NaN, 0, 0, NaN, NaN, NaN, NaN, 0, 0, NaN, ...] if there are three NaNs, it indicates no data for given block (dropout)
-% % % % % % % % % % % % % % %     % xx ... first row beginnings, second row ends of the valid blocks, time from the date of birth (dob)
-% % % % % % % % % % % % % % %     ta = [dp.tax(1) - (dp.tax(2) - dp.tax(1)); dp.tax]; % Add the beginning of the first block
-% % % % % % % % % % % % % % %     x1 = days(ta - subjInfo.dob);
-% % % % % % % % % % % % % % %     x = NaN(3*(numel(x1) - 1), 1);
-% % % % % % % % % % % % % % %     x(1 : 3 : end - 2) = x1(1 : end - 1);
-% % % % % % % % % % % % % % %     x(2 : 3 : end - 1) = x1(2 : end);
-% % % % % % % % % % % % % % % 
-% % % % % % % % % % % % % % %     yTF = false(size(x));
-% % % % % % % % % % % % % % %     yTF(1 : 3 : end - 2) = all(isnan(dp.(d.EventName).ValidS), 2); % If it is NaN in all channels, make y true
-% % % % % % % % % % % % % % %     yTF(2 : 3 : end - 1) = all(isnan(dp.(d.EventName).ValidS), 2);
-% % % % % % % % % % % % % % %     yTF(1 : 3 : end - 2) = all(dp.(d.EventName).ValidS == 0, 2); % If there is 0 seconds of valid signal, make y true
-% % % % % % % % % % % % % % %     yTF(2 : 3 : end - 1) = all(dp.(d.EventName).ValidS == 0, 2);
-% % % % % % % % % % % % % % %     y = zeros(size(yTF));
-% % % % % % % % % % % % % % %     y(yTF) = NaN; % Where y is true, make it NaN
-% % % % % % % % % % % % % % %     y(3 : 3 : end) = NaN; % Separation of bins
-% % % % % % % % % % % % % % % 
-% % % % % % % % % % % % % % %     xx(1, :) = x(1 : 3 : end - 2);
-% % % % % % % % % % % % % % %     xx(2, :) = x(2 : 3 : end - 1);
-% % % % % % % % % % % % % % %     yy(1, :) = y(1 : 3 : end - 2);
-% % % % % % % % % % % % % % %     xx = xx(:, ~isnan(yy(1, :))); % First row beginnings, second row ends of the valid blocks
-% % % % % % % % % % % % % % % end
 function [yl, yt] = getYLimYTick(y, varargin)
     % y ......... signal to accommodate within the axes
     % varargin .. two-element string array indicating requirements for the the y-axis limits
