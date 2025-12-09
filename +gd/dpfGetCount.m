@@ -7,8 +7,8 @@ function c = dpfGetCount(ll, d, binLimDt)
     % % % numch = height(ll.sigInfo); % Number of channels
     pointTF = ~(any(ll.lblDef.LabelType(ismember(ll.lblDef.ClassName, d.MainLbl)) == "roi"));
     c = NaN(1, numch);
-    for kch = 1 : numch
-        lblSetRelevantCh = gd.dpfLblRelevantCh(ll, d, binLimDt, kch);
+    % % % % for kch = 1 : numch
+    lblSetRelevant = gd.dpfLblRelevant(ll, d, binLimDt);
         lblSetRelevantCh = gd.dbfLblMerge(lblSetRelevantCh, d.MinSepS, pointTF);
         c(1, kch) = height(lblSetRelevantCh);
     end

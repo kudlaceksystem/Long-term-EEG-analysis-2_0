@@ -1,4 +1,5 @@
 function lblSet = dbfLblMerge(lblSet, minSeparationS, pointTF)
+    % Merges labels separated less than minSeparationS. Does not care about in which channel the label is.
     % lblSet ........... label set in which labels closer than minSeparationS will be merged
     % minSeparationS ... minimum separation to keep them separate, if closer, merge
     % instant .......... if the label is of type "point", it has no duration, so we will set End = Start
@@ -16,7 +17,6 @@ function lblSet = dbfLblMerge(lblSet, minSeparationS, pointTF)
         lblSet.End(nummrg - k + 1) = [];
     end
     lblSet.ClassName = repelem("Merged", height(lblSet.ClassName), 1);
-    % % % dbfLblMerge_asdf_ = lblSet.ClassName
     if pointTF
         lblSet.End = lblSet.Start;
     end
