@@ -11,10 +11,8 @@ function [x, y, xx] = getValidXY(subjInfo, d, dp)
     x(2 : 3 : end - 1) = x1(2 : end);
     
     yTF = false(size(x));
-    yTF(1 : 3 : end - 2) = all(isnan(dp.(nm).ValidS), 2); % If it is NaN in all channels, make y true
-    yTF(2 : 3 : end - 1) = all(isnan(dp.(nm).ValidS), 2);
-    yTF(1 : 3 : end - 2) = all(dp.(nm).ValidS == 0, 2); % If there is 0 seconds of valid signal, make y true
-    yTF(2 : 3 : end - 1) = all(dp.(nm).ValidS == 0, 2);
+    yTF(1 : 3 : end - 2) = all(isnan(dp.(nm).ValidS), 2)  |  all(dp.(nm).ValidS == 0, 2); % If it is NaN in all channels or if there is 0 in all channels make y true
+    yTF(2 : 3 : end - 1) = all(isnan(dp.(nm).ValidS), 2)  |  all(dp.(nm).ValidS == 0, 2);
     y = zeros(size(yTF));
     y(yTF) = NaN; % Where y is true, make it NaN
     y(3 : 3 : end) = NaN; % Separation of bins
