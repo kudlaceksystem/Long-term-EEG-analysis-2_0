@@ -104,7 +104,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     
     for kbinlen = 1 : numel(binlenUnDu)
         % Split the time into bins
-        binDt = (anStartDt : binlenUnDu(kbinlen) : anEndDt)'; % Borders of bins in datenum
+        binDt = (anStartDt : binlenUnDu(kbinlen) : anEndDt)'; % Edges of bins in datenum
         numbin = numel(binDt) - 1; % Number of bins
         
         % Initialize the table in a field of the dp structure
@@ -154,7 +154,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                     binTables.(nm) = table('Size', [numRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Table of data from all files belonging to current time bin
                 end
             end
-            
+
             % Loop over files within this block
             for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
                 if loadedLblpn ~= string(lblpn{lblfSub(klf)}) % Check if the required data file is already loaded. If not, load it.
@@ -210,19 +210,17 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                             if d.CalcLvl == "file"
                                 funcHandle = str2func(d.CalcFcn(1));
                                 colnm = d.VarName; % Column name
-                                numch = height(ll.sigInfo);
+                                % % % % % % % numch = height(ll.sigInfo);
                                 switch d.SrcData
                                     case "Lbl"
                                         % In contrast to ds calculation, here we include also bin limits so that the function can disregard data not belonging to the current bin
-                                        binTables.(nm).(colnm)(klf, 1 : numch) =...
-                                            funcHandle(ll, d, [binDt(kb), binDt(kb+1)]);
+                                        y = funcHandle(ll, d, [binDt(kb), binDt(kb+1)]);
                                     case "Snl"
-                                        binTables.(nm).(colnm)(klf, 1 : numch) =...
-                                            funcHandle(ls, d, [binDt(kb), binDt(kb+1)]);
+                                        y = funcHandle(ls, d, [binDt(kb), binDt(kb+1)]);
                                     case "LblSnl"
-                                        binTables.(nm).(colnm)(klf, 1 : numch) =...
-                                            funcHandle(ll, ls, d, [binDt(kb), binDt(kb+1)]);
+                                        y = funcHandle(ll, ls, d, [binDt(kb), binDt(kb+1)]);
                                 end
+                                binTables.(nm).(colnm)(klf, 1 : numel(y)) = y;
                             end
                         end
                     end
@@ -241,18 +239,21 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                                 if ~isempty(binTables.(nm)) % If it is not empty, sum over the first dimension.
                                     funcHandle = str2func(d.CalcFcn(2));
                                     warning('off', 'MATLAB:table:RowsAddedExistingVars')
-                                    binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables.(nm).(colnm), 1);
+                                    y = funcHandle(binTables.(nm).(colnm), 1);
+                                    binTableFinal.(nm).(colnm)(1, 1 : numel(y)) = y;
                                     warning('on', 'MATLAB:table:RowsAddedExistingVars')
                                 else % If it is empty, the function sum would create one NaN in each cell of the table. If we process >1 channel, a single NaN would be inconsistent with the dimensions of other cells.
                                     warning('off', 'MATLAB:table:RowsAddedExistingVars')
-                                    binTableFinal.(nm).(colnm)(1, 1 : numch) = NaN(1, numel(dp.(nm).(colnm)(1, :)));
+                                    y = NaN(1, numel(dp.(nm).(colnm)(1, :)));
+                                    binTableFinal.(nm).(colnm)(1, 1 : numel(y)) = y;
                                     warning('on', 'MATLAB:table:RowsAddedExistingVars')
                                 end
                             case "bin"
                                 funcHandle = str2func(d.CalcFcn);
                                 numch = height(ll.sigInfo); % Number of channels
                                 warning('off', 'MATLAB:table:RowsAddedExistingVars')
-                                binTableFinal.(nm).(colnm)(1, 1 : numch) = funcHandle(binTables, nm); % Each cell of the table can contain either a scalar or a row vector (if there are more channels)
+                                y = funcHandle(binTables, nm); % Each cell of the table can contain either a scalar or a row vector (if there are more channels)
+                                binTableFinal.(nm).(colnm)(1, 1 : numel(y)) = y;
                                 warning('on', 'MATLAB:table:RowsAddedExistingVars')
                         end
                     end

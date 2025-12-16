@@ -25,7 +25,7 @@ function validS = dpfGetValidAmountCh(ll, d, binLimDt)
     end
     existentS = seconds(min(ll.sigInfo.SigEnd(1), binLimDt(2)) - max(ll.sigInfo.SigStart(1), binLimDt(1)));
     if existentS > 0
-        validS = snlDurS*ones(1, numch) - invalidS; % Calculate the valid signal duration
+        validS = existentS*ones(1, numch) - invalidS; % Calculate the valid signal duration
         if any(validS < 0)
             disp(validS)
             warning('_jk dpfGetValidAmountCh validS negative')

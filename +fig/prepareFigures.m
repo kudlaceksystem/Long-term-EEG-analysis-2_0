@@ -1,6 +1,9 @@
 function h = prepareFigures(stg, h, figDesc)
-    for kfig = 1 : numel(figDesc.Name)
-        fd = figDesc.(figDesc.Name(kfig));
+stg
+h
+figDesc
+    for kfig = 1 : numel(figDesc.ToPlot)
+        fd = figDesc.(figDesc.ToPlot(kfig));
         nm = fd.Name;
         if isfield(fd, "PositionCm")
             h.f.(nm) = figure("Units", "centimeters", "Position", fd.PositionCm);

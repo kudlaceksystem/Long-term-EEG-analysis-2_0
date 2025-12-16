@@ -124,7 +124,7 @@ d(1).VarName    = "ValidS";
 d(1).VarType    = "double";
 d(1).BinLenDu   = binlenDu;
 d(1).CalcLvl    = "file";
-d(1).CalcFcn    = ["gd.dpfGetValidAmount", "sum"]; % If ClcLvl is "file", specify function to apply on individual files and function to merge data from multiple files to bin
+d(1).CalcFcn    = ["gd.dpfGetValidAmountAny", "sum"]; % If ClcLvl is "file", specify function to apply on individual files and function to merge data from multiple files to bin
 d(1).SrcData    = "Lbl";
 d(1).MainLbl    = szLbl;
 d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
@@ -227,7 +227,8 @@ stg.margGlobSlopeBox = [0 0 0 0];
 stg.margSlopeBox = [0.15 0.1 0.1 0.3];
 
 % List the figures you wish to plot
-figDesc.Name = ["SzRaster"; "SzKaroly"];
+figDesc.Name    = ["SzRaster"; "SzKaroly"; "SzBinCount"];
+figDesc.ToPlot  = ["SzBinCount"]; %#ok<NBRAK2>
 
 % SzRaster
 kfig = 1;
@@ -246,12 +247,19 @@ d.Name          = figDesc.Name(kfig);
 d.FigFcn        = "fig.figKaroly"; % Function to use
 d.EventName     = "Seizure"; % Phenomenon to stem
 d.EventValidSrc = "Seizure21600";
-% % % d.PositionCm    = [5, 5, stg.figWidth2Cm, stg.numSubj*5 + 1.5]; % Position in centimeters
 d.subplotHeCm   = 5;
 figDesc.(figDesc.Name(kfig)) = d;
 clear d
 
-
+% SzKaroly
+kfig = kfig + 1;
+d.Name          = figDesc.Name(kfig);
+d.FigFcn        = "fig.figBinCount"; % Function to use
+d.EventName     = "Seizure"; % Phenomenon to stem
+d.EventValidSrc = "Seizure21600";
+d.subplotHeCm   = 5;
+figDesc.(figDesc.Name(kfig)) = d;
+clear d
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%
@@ -385,8 +393,8 @@ if analyzeIndividualSubjects % If you have all the subject data in RAM, you may 
         %% TODO004 DO SUBJECT STATS LATER
         subjStats(ksubj, :) = subjectStats(stg, subjInfo, ds, dp, clustStats); %#ok<SAGROW>
 
-        for kfig = 1 : numel(figDesc.Name)
-            d = figDesc.(figDesc.Name(kfig));
+        for kfig = 1 : numel(figDesc.ToPlot)
+            d = figDesc.(figDesc.ToPlot(kfig));
             funcHandle = str2func(d.FigFcn); % Get function handle from the name of the function.
             funcHandle(stg, h, d, subjInfo, ds, dp, clust)
         end

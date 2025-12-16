@@ -1,4 +1,4 @@
-function validS = dpfGetValidAmount(ll, d, binLimDt)
+function validS = dpfGetValidAmountAny(ll, d, binLimDt)
     % ll ........... contents of OSEL label file, i.e. sigInfo, lblDef, lblSet
     % d ............ relevant line of the dpDesc structure
     % binLimDt ..... start and end of the current bin (markers outside the bin will be ignored)
@@ -25,7 +25,7 @@ function validS = dpfGetValidAmount(ll, d, binLimDt)
     end
     existentS = seconds(min(ll.sigInfo.SigEnd(1), binLimDt(2)) - max(ll.sigInfo.SigStart(1), binLimDt(1)));
     if existentS > 0
-        validS = snlDurS*ones(1, numch) - invalidS; % Calculate the valid signal duration
+        validS = existentS*ones(1, numch) - invalidS; % Calculate the valid signal duration
         if any(validS < 0)
             disp(validS)
             warning('_jk dpfGetValidAmountCh validS negative')
