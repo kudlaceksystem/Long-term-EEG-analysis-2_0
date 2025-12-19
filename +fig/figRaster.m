@@ -28,6 +28,7 @@ function figRaster(stg, h, d, subjInfo, ds, dp, clust)
     % Events
     numev = numel(ds.(d.EventName).OnsDt);
     x = days(ds.(d.EventName).OnsDt - subjInfo.dob); % X data common for polynomial fitting and plotting
+    
     x = repelem(x, 3);
     y1 = zeros(numev, 1);
     y = NaN(3*numev, 1);

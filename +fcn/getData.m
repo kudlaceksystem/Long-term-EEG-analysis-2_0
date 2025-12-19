@@ -1,4 +1,4 @@
-function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjNmOrig)
+function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjNmOrig)
     % dsDesc ........ data to stem description
     % dpDesc ........ data to plot description
     % lblp .......... path to label files
@@ -8,7 +8,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     % subjNmOrig .... original subject name (I do not know why it is needed here
 
     % Get sz data and signal characteristics such as IED rate, amount of EMG artifacts and critical slowing markers.
-    global stg
+    % % % % % % % global stg
     
     %% NEEDS REWRITING If the data for this subject already exist load it
     % if exist([stg.dataFolder, 'Data-', num2str(seconds(dpDesc.BinLenDu)), '-', char(subjNmOrig), '.mat'], 'file')
@@ -42,11 +42,11 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     lblOnlyTF = dsLblOnlyTF && dpLblOnlyTF;
 
     % Get the file names
-    [lblpn, lblDt] = gd.dbfGetPnDt(lblp); % Get path name and datenum
+    [lblpn, lblDt] = gd.dbfGetPnDt(stg, lblp); % Get path name and datenum
     if ~lblOnlyTF
-        [snlpn, snlDt] = gd.dbfGetPnDt(snlp); % Get path name and datenum
+        [snlpn, snlDt] = gd.dbfGetPnDt(stg, snlp); % Get path name and datenum
     end
-    [subjNm, anStartDt, anEndDt, chName] = getSubjInfo(lblpn, subjNmOrig);
+    [subjNm, anStartDt, anEndDt, chName] = getSubjInfo(stg, lblpn, subjNmOrig);
     
     %% Data to stem
     % Initialize the table in a field of the ds structure
@@ -54,40 +54,147 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
         nm = dsDesc.Name(kn); % Name of the phenomenon to analyze
         dd = dsDesc.(nm); % Data description (only for this phenomenon)
         ds.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
+        ds.(nm) = helper.tblSetTimeZone(ds.(nm), stg.timeZoneStr);
+        ds.(nm) = helper.tblSetTimeZone(ds.(nm), "UTC");
     end
     % Loop over label files
     fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
+    clear prevEnd
     for klbl = 1 : numel(lblpn)
         if rem(klbl, 20) == 0
             fprintf('\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b') % This can delete the previous line
             fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
             fprintf('\n')
         end
-        ll = load(lblpn{klbl}); % Loaded label. All three variables from the label file will become fields of the ll structure
+lblpn{klbl}
+        ll = load(lblpn{klbl}) % Loaded label. All three variables from the label file will become fields of the ll structure
+        ll.sigInfo = helper.tblSetTimeZone(ll.sigInfo, stg.timeZoneStr);
+        ll.sigInfo = helper.tblSetTimeZone(ll.sigInfo, "UTC");
+        ll.lblSet = helper.tblSetTimeZone(ll.lblSet, stg.timeZoneStr);
+        ll.lblSet = helper.tblSetTimeZone(ll.lblSet, "UTC");
+
+        % Keep only channels belonging to this animal
+        chToKeep = find(ll.sigInfo.Subject == string(subjNmOrig));
+        ll.sigInfo = ll.sigInfo(chToKeep, :);
+        ll.lblSet = ll.lblSet(ismember(ll.lblSet.Channel, chToKeep), :);
+
+        % Check if new file begins after the end of the previous file
+        if exist('prevSigInfo', 'var')
+            siginfo_ = ll.sigInfo.SigStart
+            prevsiginfo_ = prevSigInfo.SigEnd
+            currentStartMinusPrevEnd = ll.sigInfo.SigStart(1) - prevSigInfo.SigEnd(1);
+            if currentStartMinusPrevEnd < minutes(-40)
+                klbl_ = klbl
+                prev_lblpn_ = lblpn{klbl-1}
+                prevSigInfo_ = prevSigInfo
+                prevTz_ = prevSigInfo.SigStart.TimeZone
+                lblpn_klbl_ = lblpn{klbl}
+                thisSigInfo_ = ll.sigInfo
+                thisTz_ = ll.sigInfo.SigStart.TimeZone
+                currentStartMinusPrevEnd_ = currentStartMinusPrevEnd
+                'now change the time'
+                ll.sigInfo.SigStart = ll.sigInfo.SigStart + hours(1);
+                ll.sigInfo.SigEnd = ll.sigInfo.SigEnd + hours(1);
+                newTime_ = ll.sigInfo
+                pause
+            end
+        end
+        prevSigInfo = ll.sigInfo;
+
+        % Check if sigInfo.FileName corresponds to file name
+        fndattimStr = regexp(lblpn{klbl}, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match');
+        filenameDt = datetime(fndattimStr{1}, 'InputFormat', 'yyMMdd_HHmmss', 'TimeZone', stg.timeZoneStr);
+        filenameDt.TimeZone = "UTC";
+        fcdattimStr = regexp(ll.sigInfo.FileName, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match');
+        filecontDt = datetime(fcdattimStr{1}, 'InputFormat', 'yyMMdd_HHmmss', 'TimeZone', stg.timeZoneStr);
+        filecontDt.TimeZone = "UTC";
+        if filenameDt ~= filecontDt
+                klbl
+                lblpn{klbl}
+                ll.sigInfo
+                pause
+        end
+
+        % Check if SigStart corresponds to file name
+        fndattimStr = regexp(lblpn{klbl}, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match');
+        filenameDt = datetime(fndattimStr{1}, 'InputFormat', 'yyMMdd_HHmmss', 'TimeZone', stg.timeZoneStr);
+        filenameDt.TimeZone = "UTC";
+        % % % % % % % % % % fcdattimStr = regexp(ll.sigInfo.FileName, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match');
+        filecontDt = ll.sigInfo.SigStart;
+        if filenameDt ~= filecontDt
+                klbl
+                lblpn{klbl}
+                ll.sigInfo
+                pause
+        end
+        
         for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
             nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
             dd = dsDesc.(nm); % Data description (only for this phenomenon)
             % Initialize a new table which will be filled in and appended to the ds.(dsDesc.Name(kn)).
+
             numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows (e.g. number of seizures in this label file)
             newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialization of the table.
+            newRows = helper.tblSetTimeZone(newRows, stg.timeZoneStr);
+            newRows = helper.tblSetTimeZone(newRows, "UTC");
             for kchar = 1 : size(dsDesc.(nm), 2) % Over characteristics. Fill in new rows for each characteristic of the phenomenon
                 d = dd(kchar); % Description of the current characteristic.
                 funcHandle = str2func(d.CalcFcn); % Get function handle from the name of the function.
                 colnm = d.VarName; % Column name
-                switch d.SrcData % As of now, we probably do not have the sl ready. The loading of sl needs to be finished (or at least tested)
+                switch d.SrcData % As of now, we probably do not have the ls ready. The loading of ls needs to be finished (or at least tested)
                     case "Lbl"
-                        newRows.(colnm) = funcHandle(ll, d); % The function must accept the loaded label and characteristic description structure.
+                        y = funcHandle(ll, d);
+                        newRows.(colnm)(1 : numel(y)) = y; % The function must accept the loaded label and characteristic description structure.
                     case "Snl"
                         newRows.(colnm) = funcHandle(ls, d);
                     case "LblSnl"
                         newRows.(colnm) = funcHandle(ll, ls, d);
                 end
-                newRows.(colnm) = funcHandle(ll, d);
             end
             ds.(nm) = [ds.(nm); newRows];
         end
     end
-
+    for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
+        nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
+        ds.(nm) = ds.(nm)(~isnat(ds.(nm){:, 1}), :);
+        % Remove duplicates
+        [~, sub] = unique(ds.(nm){:, 1});
+        ds.(nm) = ds.(nm)(sub, :);
+        % TODO006 Merge too close events here again (they may be in different files, yet still too close
+        if ~any(strcmp(ds.(nm).Properties.VariableNames, 'DurDu'))
+            ds.(nm).DurDu = seconds(zeros(height(ds.(nm)), 1));
+        end
+        if all(ds.(nm).DurDu == seconds(0))
+            pointTF = true;
+        else
+            pointTF = false;
+        end
+        ds.(nm) = sortrows(ds.(nm), "OnsDt");
+        onsDt = ds.(nm).OnsDt;
+        offDt = ds.(nm).OnsDt + ds.(nm).DurDu;
+        nummrk = height(ds.(nm)); % Number of markers
+        mergeWithPreviousTF = false(nummrk, 1);
+        for k = 2 : nummrk
+            d = onsDt(k) - offDt(1 : k - 1); % Current marker separation from all the previous
+            mergeWithPreviousTF(k) = any(d < seconds(dsDesc.(nm)(1).MinSepS)); % Plugs in true the current marker was insufficiently separated from any of the previous
+        end
+        mergeWithPreviousSub = find(mergeWithPreviousTF);
+        nummrg = numel(mergeWithPreviousSub); % Number of markers to merge with previous
+        for k = 1 : nummrg
+            toBeMerged = mergeWithPreviousSub(nummrg - k + 1);
+            mergedWith = mergeWithPreviousSub(nummrg - k + 1) - 1;
+            offDt(mergedWith) = max(offDt(mergedWith), offDt(toBeMerged));
+            offDt(toBeMerged) = [];
+            onsDt(toBeMerged) = [];
+            ds.(nm)(toBeMerged, :) = [];
+        end
+        ds.(nm).OnsDt = onsDt;
+        ds.(nm).DurDu = offDt - onsDt;
+        if pointTF
+            ds.(nm).DurDu = seconds(zeros(height(ds.(nm)), 1));
+        end
+    end
+    
     %% Data to plot
     % Find out if we will need the signal files
     for knm = 1 : length(dpDesc.Name)
@@ -113,6 +220,8 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
             dd = dpDesc.(nm); % Data description (only for this phenomenon)
             if dd(1).BinLenDu == binlenUnDu(kbinlen)
                 dp.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialize with zero number of rows
+                dp.(nm) = helper.tblSetTimeZone(dp.(nm), stg.timeZoneStr);
+                dp.(nm) = helper.tblSetTimeZone(dp.(nm), "UTC");
             end
         end
         
@@ -152,18 +261,51 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                 if dd(1).BinLenDu == binlenUnDu(kbinlen)
                     numRows = numel(lblfSub); % Number of rows
                     binTables.(nm) = table('Size', [numRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Table of data from all files belonging to current time bin
+                    binTables.(nm) = helper.tblSetTimeZone(binTables.(nm), stg.timeZoneStr);
+                    binTables.(nm) = helper.tblSetTimeZone(binTables.(nm), "UTC");
                 end
             end
+            
+            % Get channel names
+            ll = load(lblpn{1}, 'sigInfo');
+            % Keep only channels belonging to this animal
+            chToKeep = find(ll.sigInfo.Subject == string(subjNmOrig));
+            ll.sigInfo = ll.sigInfo(chToKeep, :);
+            channelNames = ll.sigInfo.ChName;
+            clear ll
 
             % Loop over files within this block
             for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
                 if loadedLblpn ~= string(lblpn{lblfSub(klf)}) % Check if the required data file is already loaded. If not, load it.
                     ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblDef', 'lblSet');
-                    loadedLblpn = string(lblpn{lblfSub(klf)}); % Update which file is currently loaded.
+                    ll.sigInfo = helper.tblSetTimeZone(ll.sigInfo, stg.timeZoneStr);
+                    if diff(isdst(ll.sigInfo.SigStart(1), ll.sigInfo.SigStart(1) + hours(1)))
+                        'Daylight fuck'
+                        ll.sigInfo
+                        pause
+                    end
+                    ll.sigInfo = helper.tblSetTimeZone(ll.sigInfo, "UTC");
+                    ll.lblSet = helper.tblSetTimeZone(ll.lblSet, stg.timeZoneStr);
+                    ll.lblSet = helper.tblSetTimeZone(ll.lblSet, "UTC");
+
+                    % Keep only channels belonging to this animal
+                    chToKeep = find(ll.sigInfo.Subject == string(subjNmOrig));
+                    ll.sigInfo = ll.sigInfo(chToKeep, :);
+                    ll.lblSet = ll.lblSet(ismember(ll.lblSet, chToKeep), :);
+                    % Check channel names
+                    if numel(ll.sigInfo.ChName) ~= numel(channelNames)
+                        error('_jk getData: Number of channels inconsistent.')
+                    end
+                    if ~all(ll.sigInfo.ChName == channelNames)
+                        error('_jk getData: Channel order inconsistent.')
+                    end
+                    % Update which file is currently loaded.
+                    loadedLblpn = string(lblpn{lblfSub(klf)});
                 end
                 % If signal data are needed, load them and check if the label and signal files correspond
                 if ~dpLblOnlyTF
                     load(snlpn{snlfSub(klf)}, 'sigTbl')
+                    % Solve the daylight saving time issues here as well
                     snlChToProcessSub = cellfun(@(x) isempty(x), regexp(sigTbl.ChName, 'Rhd.X-\d', 'match')); % Subscripts of signal channels to be processed (e.g. we may want do ignore accelerometer channels)
                     % Check if signal and label correspond
                     sigTbl = sigTbl(snlChToProcessSub, :);
@@ -257,6 +399,12 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
                                 warning('on', 'MATLAB:table:RowsAddedExistingVars')
                         end
                     end
+                    validS = binTableFinal.(nm).ValidS
+                    if validS > seconds(dpDesc.(nm)(1).BinLenDu)
+                        y
+                        validS
+                        pause
+                    end
                     dp.(nm) = [dp.(nm); binTableFinal.(nm)]; % The binTableFinal has one row containg the data for current time bin. Append it to the main table dp.(nm)
                 end
             end
@@ -281,6 +429,9 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
     subjNumber = regexp(subjNm, '\D\D\d\d\d+', 'match');
     subjNumber = subjNumber{1}(3 : end);
     whichSubj = find(contains(string(dobTable{:, 1}), subjNumber));
+    if isempty(whichSubj)
+        error(['_jk Mouse ', num2str(subjNumber), ' not found in the table of dates or birth.'])
+    end
     if ~isscalar(whichSubj)
         error(['_jk Date of birth table has multiple subjects which have ', num2str(subjNumber), ' in their name.'])
     end
@@ -293,23 +444,27 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
 % % % %     save([stg.dataFolder, 'Data-', num2str(stg.dpBinLenS), '-', char(subjNmOrig), '.mat'], 'subjInfo', 'szCharTbl', 'szCharLabel', 'siCharTbl', 'siCharLabel')
     
     %% Nested functions - possibly put them also in +gd?
-    function [subjNm, anStartDt, anEndDt, chName] = getSubjInfo(lblpn, subjNmOrig, varargin)
-        load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet') %#ok<NASGU>
+    function [subjNm, anStartDt, anEndDt, chName] = getSubjInfo(stg, lblpn, subjNmOrig, varargin)
+        lll = load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet');
+        lll.sigInfo = helper.tblSetTimeZone(lll.sigInfo, stg.timeZoneStr);
+        lll.sigInfo = helper.tblSetTimeZone(lll.sigInfo, "UTC");
         % There can be multiple subjects in one lbl3 file. Keep only channels containing the data on the subject.
         ss = strsplit(subjNmOrig, 'ET'); % ET stands for ear tag. Sometimes it is included in the subject name
-        whichChannelsLbl = find(contains(sigInfo.Subject, ss{end}));
-        sigInfo = sigInfo(whichChannelsLbl, :);
-        chName = sigInfo.ChName;
+        whichChannelsLbl = find(contains(lll.sigInfo.Subject, ss{end}));
+        sigInfo = lll.sigInfo(whichChannelsLbl, :);
+        chName = lll.sigInfo.ChName;
 
         % % % % % % % % % % lblSet = lblSet(ismember(lblSet.Channel, whichChannelsLbl), :);
         % Check that all rows belong to the same subject
-        subjNm = sigInfo.Subject(1);
-        if ~all(sigInfo.Subject == subjNm)
-            disp(sigInfo)
+        subjNm = lll.sigInfo.Subject(1);
+        if ~all(lll.sigInfo.Subject == subjNm)
+            disp(lll.sigInfo)
             error('_jk Multiple subjects in label file.')
         end
-        anStartDt = min(sigInfo.SigStart); % Analysis start determined by label files
-        lastLbl = load(lblpn{end});
+        anStartDt = min(lll.sigInfo.SigStart); % Analysis start determined by label files
+        lastLbl = load(lblpn{end}, 'sigInfo');
+        lastLbl.sigInfo = helper.tblSetTimeZone(lastLbl.sigInfo, stg.timeZoneStr);
+        lastLbl.sigInfo = helper.tblSetTimeZone(lastLbl.sigInfo, "UTC");
         lastSigInfo = lastLbl.sigInfo(whichChannelsLbl, :);
         anEndDt = max(lastSigInfo.SigEnd); % Analysis end determined by signal files
         if numel(varargin) == 0
@@ -329,7 +484,7 @@ function [subjInfo, ds, dp] = getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksub
         anStartDtSig = min(sigTbl.SigStart); % Analysis start determined by signal files
         % % % % % % % % % % % % lastLbl = load(lblpn{end});
         lastSigInfo = lastLbl.sigInfo(whichChannelsLbl, :);
-        if any(sigInfo.Subject ~= lastSigInfo.Subject)
+        if any(lll.sigInfo.Subject ~= lastSigInfo.Subject)
             error('_jk Last label file has diffent channels than the first file.')
         end
         lastSnl = load(snlpn{end});

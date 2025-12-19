@@ -23,7 +23,23 @@ function validS = dpfGetValidAmountAny(ll, d, binLimDt)
             invalidS(1, kch) = 0;
         end
     end
-    existentS = seconds(min(ll.sigInfo.SigEnd(1), binLimDt(2)) - max(ll.sigInfo.SigStart(1), binLimDt(1)));
+    if any(invalidS < 0, "all")
+        invalidS_ = invalidS
+        pause
+    end
+    if ll.sigInfo.SigEnd(1) < binLimDt(1) || ll.sigInfo.SigStart(1) > binLimDt(2)
+        existentS = 0;
+    else
+        existentS = seconds(min(ll.sigInfo.SigEnd(1), binLimDt(2)) - max(ll.sigInfo.SigStart(1), binLimDt(1)));
+    end
+    if existentS > 3601
+        existentS_ = existentS
+        pause
+    end
+    if existentS < 0
+        existentS_ = existentS
+        pause
+    end
     if existentS > 0
         validS = existentS*ones(1, numch) - invalidS; % Calculate the valid signal duration
         if any(validS < 0)
@@ -34,5 +50,13 @@ function validS = dpfGetValidAmountAny(ll, d, binLimDt)
     else
         validS = NaN(1, numch);
     end
-    validS = min(validS, [], 'omitnan');
+    % % % % % % % % % % % % % % % % if ~all(validS == validS(1))
+    % % % % % % % % % % % % % % % %     validS
+    % % % % % % % % % % % % % % % % end
+    validS = validS(1);
+    % % % % % % % % % % % % % % % % if validS > seconds(d.BinLenDu)
+    % % % % % % % % % % % % % % % %     existentS
+    % % % % % % % % % % % % % % % %     validS
+    % % % % % % % % % % % % % % % %     pause
+    % % % % % % % % % % % % % % % % end
 end

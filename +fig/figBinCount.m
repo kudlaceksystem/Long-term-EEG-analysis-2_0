@@ -1,4 +1,5 @@
 function figBinCount(stg, h, d, subjInfo, ds, dp, ~)
+    histEdges = 0 : 30;
     nm = d.Name;
     evnm = d.EventName; % Name of the event to analyze
     vanm = d.EventValidSrc; % Name of the dp field to get the data on validity of the source data
@@ -19,8 +20,8 @@ function figBinCount(stg, h, d, subjInfo, ds, dp, ~)
         validEn = find(dpTax - dpBinlenDu < binDt(kb+1), 1, "last"); % Find the last dp bin which has the start before the conting bin ends
         valid = dp.(vanm).ValidS(validSt : validEn, :);
         if any(valid > dpBinlenS, "all") % Just check that the validS is shorter than the bin length (otherwise there is a bug somewhere in getData)
-            disp(valid)
-            disp(dpBinlenS)
+            valid_ = valid
+            dpBinlenS_ = dpBinlenS
             pause
         end
         valid = ~all(isnan(valid) | valid <= minRequiredValidS, 2);
@@ -36,8 +37,7 @@ function figBinCount(stg, h, d, subjInfo, ds, dp, ~)
     numev = sum(binCounts, 1, "omitmissing");
     
     % Compute histogram
-    edges = 0 : 20;
-    hc = histcounts(binCounts, edges);
+    hc = histcounts(binCounts, histEdges);
     hcNorm = hc/numev;
     
     % Plot figure
@@ -47,7 +47,7 @@ function figBinCount(stg, h, d, subjInfo, ds, dp, ~)
     h.a.(nm)(subjInfo.ksubj, 1) = axes("Units", "centimeters", "Position", ...
         [spx(mod(subjInfo.ksubj - 1, numc) + 1), spy(ceil(subjInfo.ksubj/numc)), spWi, spHe], "NextPlot", "add");
     
-    x = edges; % X data common for polynomial fitting and plotting
+    x = histEdges; % X data common for polynomial fitting and plotting
     x = repelem(x, 3);
     x = x(2 : end-1);
     y = NaN(size(x));

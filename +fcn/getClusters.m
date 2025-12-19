@@ -14,6 +14,9 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
 
     % global stg
     onsDt = ds.(cld.EventName).OnsDt; % We always cluster by onset datetime here
+    if numel((onsDt)) ~= numel(unique(onsDt))
+        error('_jk gd.getClusters Duplicate events in the input.')
+    end
     clust = [];
     stats = table;
     if numel(onsDt) < cld.MinNumInClus
@@ -34,7 +37,7 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
     if cld.ExclClAtEdges % Exclude clusters at edges of the recording?
         onsDt = [subjInfo.anStartDt; onsDt; subjInfo.anEndDt]; % Adding dummy events at the analysis start and end
     else
-        onsDt = [0; onsDt; years(3000)]; % Adding dummy events at the year 0 and year 3000
+        onsDt = [0; onsDt; years(6000)]; % Adding dummy events at the year 0 and year 6000
     end
     eventBelongsToClust = zeros(size(onsDt)); % Does the event belong to any cluster?
     intMult = cld.InterclusterMultiplier; % Intercluster period must be intMult times longer than the longest ISI within the cluster
@@ -42,6 +45,8 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
     numev = length(onsDt); % Number of events (including the artificially added events at the beginning and end of the onsDt vector
     evGrSt = 1; % Event group start index.
     while evGrSt <= numev - minNumEv
+        % % % % % % % % kc_ = kc
+
         evGrDt = onsDt(evGrSt : evGrSt + minNumEv); % Event group. At this moment, the shortest which could be considered a cluster. Due to the added dummy event at the beginning of OnsDt, the group index needs to be higher by 1 than it would have to be in ds.(*).OnsDt to point at the same event.
         ieiGrDu = diff(evGrDt); % Inter-event intervals (IEIs) within the group in duration class
         % If the first IEI in the group is too short to be intercluster interval (ICI) or any of the within-cluster IEI is > stg.MaxWithinClusIeiD,
@@ -55,15 +60,15 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
                 evGrDt = onsDt(evGrSt : evGrSt + minNumEv + numAddEv); % Add an event
                 ieiGrDu = diff(evGrDt); % Get IEI of the, now bigger, event group
                 % If the within-cluster IEIs are not too long (the first IEI is still considered ICI) AND last IEI is not too long compared to within-cluster IEI
-                % so it does not terminate the current cluster, add more events.
+                % so it does not terminate the current cluster (i.e. it is not an ICI), add more events.
                 if intMult*max(ieiGrDu(2 : end)) <= ieiGrDu(1) && ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1))
                     numAddEv = numAddEv + 1; % Add one more event
                     if evGrSt + minNumEv + numAddEv > numev % But if there is no more event, stop adding events and check if we have a cluster
-                        evGrDt7linesAbove = evGrDt;
+                        evGrDt7linesAbove = evGrDt; % For sanity check
                         evGrDt = onsDt(evGrSt : evGrSt + minNumEv + numAddEv - 1); % Add an event
                         if evGrDt7linesAbove ~= evGrDt; error('_jk Logical error in the code. evGrDt7linesAbove should be the same as evGrDt. Solve it.'); end
                         ieiGrDu = diff(evGrDt); % Get IEI
-                        if ieiGrDu(1) > intMult*max(ieiGrDu(2 : end - 1)) && ieiGrDu(end) > intMult*max(ieiGrDu(2 : end - 1))
+                        if ieiGrDu(1) > intMult*max(ieiGrDu(2 : end - 1)) && ieiGrDu(end) > intMult*max(ieiGrDu(2 : end - 1)) % If the first and last seizure of the group are separated enough
                             kc = kc + 1;
                             eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) = eventBelongsToClust(evGrSt + 1 : evGrSt + minNumEv + numAddEv - 1) + 1; ...
                                 % Increase the number by 1. The number will indicate level of nestedness of the cluster to which the event belongs.
@@ -82,11 +87,12 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
                                 disp('Last cluster not separated from the anEndDt enough. The cluster not added.')
                             end
                         end
-                        evGrSt = numev; % Here we could maybe plug in e.g. numev to stop the outer loop immediatelly
+                        % % % evGrSt = numev; % Here we could maybe plug in e.g. numev to stop the outer loop immediatelly
+                        evGrSt = evGrSt + 1;
                         addEvTF = false; % Terminate the inner while loop, i.e. stop adding events to this group
                     end
                 else % The added event is after too long IEI so it either just disqualifies the first IEI to define the start of the cluster or it is long enough to terminate the cluster.
-                    if ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1)) % _EITHER_ the last IEI is not long enough to be considered terminating ICI. So this group will never be a cluster.
+                    if ieiGrDu(end) < intMult*max(ieiGrDu(2 : end-1)) % _EITHER_ the last IEI is not long enough to be considered an ICI. So this group will never be a cluster.
                         addEvTF = false; % Terminate the inner while loop, i.e. stop adding events to this group.
                         evGrSt = evGrSt + 1; % Let's try with a new event group.
                     else % _OR_ it is long enough. So events (2 : end-1) of the group form a cluster separated by at least intMult*max(intraClusterISI) on both sides
@@ -103,7 +109,7 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
                         clust(kc).anStartDt = subjInfo.anStartDt; %#ok<AGROW>
                         clust(kc).anEndDt = subjInfo.anEndDt; %#ok<AGROW>
                         if evGrSt + minNumEv + numAddEv < numev % If more events exist
-                            numAddEv = numAddEv + 1; % Add one more events to the group so if there are multiple clusters starting with the same event, they get detected.
+                            numAddEv = numAddEv + 1; % Add one more event to the group so if there are multiple clusters starting with the same event, they get detected.
                         else
                             evGrSt = evGrSt + 1;
                             addEvTF = false; % Terminate the inner while loop, i.e. stop adding events to this group.
@@ -123,8 +129,8 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
     clusterTooLongTF = false(numel(clust), 1);
     for kc = 1 : length(clust)
         clusterTooLongTF(kc) = clust(kc).OnsDt(end) - clust(kc).OnsDt(1) > cld.MaxClusterDur;
-        if clusterTooLongTF
-            eventBelongsToClust(onsDt == clust(kc).OnsDt) = eventBelongsToClust(onsDt == clust(kc).OnsDt) - 1;
+        if clusterTooLongTF(kc)
+            eventBelongsToClust(clust(kc).Subscript) = eventBelongsToClust(clust(kc).Subscript) - 1;
         end
     end
     clust = clust(~clusterTooLongTF);
@@ -153,7 +159,7 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
                 (subjInfo.anEndDt - clust(kc).OnsDt(end)) < clSep % the recording ends too soon after the cluster end
             clusterRemoveTF(kc) = true;
             warning('_jk Cluster at the beginning or end of recording detected and removed.')
-            pause
+            % pause
         end
         for kdrop = 1 : numel(signDropOnsDt)
             if (clOnsDt(1) - signDropOffDt(kdrop)) < clSep   &&   signDropOnsDt(kdrop) - clOnsDt(end) < clSep % Too soon after dropout end OR dropout onset too soon after cluster end (or one or both differences are even negative which indicates the dropout even reaches or is contained inside the cluster)
@@ -162,8 +168,8 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
         end
     end
     clusterRemoveSub = find(clusterRemoveTF);
-    for kc = 1 : numel(clusterRemoveSub)
-        eventBelongsToClust(clust(clusterRemoveSub(kc)).Subscript) = eventBelongsToClust(clust(clusterRemoveSub(kc)).Subscript) - 1;
+    for kcr = 1 : numel(clusterRemoveSub)
+        eventBelongsToClust(clust(clusterRemoveSub(kcr)).Subscript) = eventBelongsToClust(clust(clusterRemoveSub(kcr)).Subscript) - 1;
     end
     clust = clust(~clusterRemoveTF);
     
@@ -195,6 +201,7 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
     for kc = 1 : length(clust)
         eventBelongsToClust2(clust(kc).Subscript) = max(eventBelongsToClust2(clust(kc).Subscript), clust(kc).nested);
     end
+
     if ~all(eventBelongsToClust == eventBelongsToClust2)
         error('_jk Nestedness calculation mismatch detected.');
     end
@@ -221,7 +228,7 @@ function [clust, eventBelongsToClust, stats] = getClusters(subjInfo, ds, dp, cld
     % % % betwClusDiffPow = NaN;
     % % % betwClusDiffPos = NaN;
     
-    clustNonNested = clust([clust.nested] == 1); % Non-nested clusters have nestedness 1 (not 0 like they used to have)
+    clustNonNested = clust([clust.nested] == 1); % Non-nested clusters have nestedness 1 (not 0 like they used to have in older versions of the program)
     for kc = 1 : length(clustNonNested)
         clEvOnsDt = [clEvOnsDt; clustNonNested(kc).OnsDt]; %#ok<AGROW>
         if kc >= 2

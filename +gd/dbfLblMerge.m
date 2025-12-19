@@ -13,11 +13,22 @@ function lblSet = dbfLblMerge(lblSet, minSeparationS, pointTF)
     mergeWithPreviousSub = find(mergeWithPreviousTF);
     nummrg = numel(mergeWithPreviousSub); % Number of markers to merge with previous
     for k = 1 : nummrg
-        lblSet.End(nummrg - k) = max(lblSet.End(nummrg - k), lblSet.End(nummrg - k + 1)); % We go backwards
-        lblSet.End(nummrg - k + 1) = [];
+        toBeMerged = mergeWithPreviousSub(nummrg - k + 1);
+        mergedWith = mergeWithPreviousSub(nummrg - k + 1) - 1;
+        lblSet.End(mergedWith) = max(lblSet.End(mergedWith), lblSet.End(toBeMerged)); % We go backwards
+        lblSet(toBeMerged, :) = [];
     end
     lblSet.ClassName = repelem("Merged", height(lblSet.ClassName), 1);
     if pointTF
         lblSet.End = lblSet.Start;
+    end
+    a = lblSet.Start;
+    b = unique(lblSet.Start);
+    if length(a) ~= length(b)
+        '====dbfLblMerge===='
+        a_ = a
+        b_ = b
+        pause
+        '==================='
     end
 end

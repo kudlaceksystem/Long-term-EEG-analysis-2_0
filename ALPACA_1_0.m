@@ -2,8 +2,8 @@
 analyzeIndividualSubjects = 1;
 analyzePopulation = 1;
 if analyzeIndividualSubjects
-    % close all
-    % clear
+    close all
+    clear
     analyzeIndividualSubjects = 1;
     analyzePopulation = 1;
 end
@@ -62,22 +62,27 @@ global stg % TODO005 get rid of global variables
 
 %% Select subjects
 subjList = {...
-    'BH002390';
-    % % % 'CO006701'
+    % 'BH002390';
+        'CO006701';
+        % 'CO006705'
 };
-path0 = 'r:\Kudlacek\FCD HFO\HFO long-term profile'; % Without '\' at the end
+path0 = '\\neurodata\Lab Neurophysiology root\EEG conversion\'; % With '\' at the end
 path1 = {
-    'Testing snl and lbl'
+    '';
+    % ''
 };
 subjToPlot = {
-        'BH002390';
-        % % % 'CO006701'
+        % 'BH002390';
+        'CO006701';
+        % 'CO006705'
 };
 pathEeg3 = {
-    'BH002390_smrx converted data full'
+    '';
+    ''
 };
 pathLbl3 = {
-    'BH002390_label_TEST with dropout'
+    'Label';
+    % 'Label'
 };
 
 
@@ -117,8 +122,8 @@ clear d
 
 %% Data to plot
 % % % dpDesc.BinLenDu = seconds(6*3600);
-dpDesc.Name = ["Seizure21600"; "Ied3600"]; % Tables that will be created. Typically, each table belongs to one characteristic of signal (e.g. IED rate, mean IED amplitude, signal power, delta/theta ratio, etc.)
-
+% dpDesc.Name = ["Seizure21600"; "Ied3600"]; % Tables that will be created. Typically, each table belongs to one characteristic of signal (e.g. IED rate, mean IED amplitude, signal power, delta/theta ratio, etc.)
+dpDesc.Name = ["Seizure21600"];
 % Seizure
 binlenDu = seconds(6*3600);
 szLbl = ["Seizure", "seizure", "SEIZURE", "S"];
@@ -163,49 +168,49 @@ d(3).YAxisLabel = "Sz/hour";
 dpDesc.(dpDesc.Name(1)) = d;
 clear d
 
-% Ied
-binlenDu = seconds(3600);
-exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
-exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
-minSepIedS = 0.1;
-d(1).VarName    = "ValidS";
-d(1).VarType    = "double";
-d(1).BinLenDu   = binlenDu;
-d(1).CalcLvl    = "file";
-d(1).CalcFcn    = ["gd.dpfGetValidAmountCh", "sum"];
-d(1).SrcData    = "Lbl";
-d(1).MainLbl    = "IED_Janca";
-d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
-d(1).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
-d(1).MinSepS    = minSepIedS;
-d(1).PlotTitle  = "Total duration of usable rec";
-d(1).YAxisLabel = "Usable rec (s)";
-d(2).VarName    = "Count";
-d(2).VarType    = "double";
-d(2).BinLenDu   = binlenDu;
-d(2).CalcLvl    = "file";
-d(2).CalcFcn    = ["gd.dpfGetCountCh", "sum"];
-d(2).SrcData    = "Lbl";
-d(2).MainLbl    = "IED_Janca";
-d(2).ExLblCh    = exLblCh; % Labels to exclude in individual channels
-d(2).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
-d(2).MinSepS    = minSepIedS;
-d(2).PlotTitle  = "IED count";
-d(2).YAxisLabel = "IED count";
-d(3).VarName    = "RatePh";
-d(3).VarType    = "double";
-d(3).BinLenDu   = binlenDu;
-d(3).CalcLvl    = "bin";
-d(3).CalcFcn    = "gd.dpbGetRatePhCh";
-d(3).SrcData    = "Lbl";
-d(3).MainLbl    = "IED_Janca";
-d(3).ExLblCh    = exLblCh; % Labels to exclude in individual channels
-d(3).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
-d(3).MinSepS    = minSepIedS;
-d(3).PlotTitle  = "IED rate";
-d(3).YAxisLabel = "IEDs/hour";
-dpDesc.(dpDesc.Name(2)) = d;
-clear d
+% % % % Ied
+% % % binlenDu = seconds(3600);
+% % % exLblCh = ["art", "Art", "EMG", "emg", "Emg"];
+% % % exLblAn = ["Seizure", "seizure", "SEIZURE", "S"];
+% % % minSepIedS = 0.1;
+% % % d(1).VarName    = "ValidS";
+% % % d(1).VarType    = "double";
+% % % d(1).BinLenDu   = binlenDu;
+% % % d(1).CalcLvl    = "file";
+% % % d(1).CalcFcn    = ["gd.dpfGetValidAmountCh", "sum"];
+% % % d(1).SrcData    = "Lbl";
+% % % d(1).MainLbl    = "IED_Janca";
+% % % d(1).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+% % % d(1).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+% % % d(1).MinSepS    = minSepIedS;
+% % % d(1).PlotTitle  = "Total duration of usable rec";
+% % % d(1).YAxisLabel = "Usable rec (s)";
+% % % d(2).VarName    = "Count";
+% % % d(2).VarType    = "double";
+% % % d(2).BinLenDu   = binlenDu;
+% % % d(2).CalcLvl    = "file";
+% % % d(2).CalcFcn    = ["gd.dpfGetCountCh", "sum"];
+% % % d(2).SrcData    = "Lbl";
+% % % d(2).MainLbl    = "IED_Janca";
+% % % d(2).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+% % % d(2).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+% % % d(2).MinSepS    = minSepIedS;
+% % % d(2).PlotTitle  = "IED count";
+% % % d(2).YAxisLabel = "IED count";
+% % % d(3).VarName    = "RatePh";
+% % % d(3).VarType    = "double";
+% % % d(3).BinLenDu   = binlenDu;
+% % % d(3).CalcLvl    = "bin";
+% % % d(3).CalcFcn    = "gd.dpbGetRatePhCh";
+% % % d(3).SrcData    = "Lbl";
+% % % d(3).MainLbl    = "IED_Janca";
+% % % d(3).ExLblCh    = exLblCh; % Labels to exclude in individual channels
+% % % d(3).ExLblAn    = exLblAn; % Labels to exclude in all channels if present in any
+% % % d(3).MinSepS    = minSepIedS;
+% % % d(3).PlotTitle  = "IED rate";
+% % % d(3).YAxisLabel = "IEDs/hour";
+% % % dpDesc.(dpDesc.Name(2)) = d;
+% % % clear d
 
 %% Clusters description
 clDesc(1).EventName = "Seizure"; % This has a different structure than dsDesc and dpDesc
@@ -218,6 +223,7 @@ clDesc(1).ExclClAtEdges = true;
 
 %% Figures description
 % General settings
+stg.timeZoneStr = "Europe/Prague";
 stg.numSubj = numel(subjToPlot);
 stg.sbNCol = max(1, ceil(sqrt(stg.numSubj)) - 1); % Subplots of subjects: number of columns
 stg.sbNRow = ceil(stg.numSubj/stg.sbNCol); % Subplots subjects - number of rows
@@ -232,7 +238,7 @@ stg.margSlopeBox = [0.15 0.1 0.1 0.3];
 
 % List the figures you wish to plot
 figDesc.Name    = ["SzRaster"; "SzKaroly"; "SzBinCount"];
-figDesc.ToPlot  = ["SzBinCount"]; %#ok<NBRAK2>
+figDesc.ToPlot  = ["SzRaster"; "SzKaroly"; "SzBinCount"];
 
 % SzRaster
 kfig = 1;
@@ -387,14 +393,15 @@ h = struct; h.f = []; h.a = [];
 setFormat; % Set plot colors etc.
 h = fig.prepareFigures(stg, h, figDesc);
 %% Get data from each subject, analyze them
-dobTable = fcn.getSubjectList('Video-EEG data.xlsx'); % Get list of subjects including their date of birth
+dobTable = fcn.getSubjectList(stg, 'Video-EEG data.xlsx'); % Get list of subjects including their date of birth
 if analyzeIndividualSubjects % If you have all the subject data in RAM, you may want to skip loading individual subjects
     for ksubj = 1 : stg.numSubj
-        lblp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}]; % Get label path
-        snlp = [path0, '\', path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
-        % % % [subjInfo, ds, dp] = fcn.getData(dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
-        % % % [clust, szBelongsToClust, clustStats] = fcn.getClusters(subjInfo, ds, dp, clDesc(1), ksubj);
+        lblp = [path0, path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathLbl3{ksubj}]; % Get label path
+        snlp = [path0, path1{ksubj}, '\', subjToPlot{ksubj}, '\', pathEeg3{ksubj}]; % Get signal path
+        [subjInfo, ds, dp] = fcn.getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable, ksubj, subjToPlot{ksubj}); % Subject info, seizure properties table, signal characteristics table, signal characteristics y-axis labels
+        [clust, szBelongsToClust, clustStats] = fcn.getClusters(subjInfo, ds, dp, clDesc(1), ksubj);
         %% TODO004 DO SUBJECT STATS LATER
+        subjectStats(stg, subjInfo, ds, dp, clustStats)
         subjStats(ksubj, :) = subjectStats(stg, subjInfo, ds, dp, clustStats); %#ok<SAGROW>
 
         for kfig = 1 : numel(figDesc.ToPlot)
