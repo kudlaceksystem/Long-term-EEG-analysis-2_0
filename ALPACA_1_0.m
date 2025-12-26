@@ -223,7 +223,7 @@ clDesc(1).ExclClAtEdges = true;
 
 %% Figures description
 % General settings
-stg.timeZoneStr = "Europe/Prague";
+stg.recTimeZoneStr = "Europe/Prague";
 stg.numSubj = numel(subjToPlot);
 stg.sbNCol = max(1, ceil(sqrt(stg.numSubj)) - 1); % Subplots of subjects: number of columns
 stg.sbNRow = ceil(stg.numSubj/stg.sbNCol); % Subplots subjects - number of rows
