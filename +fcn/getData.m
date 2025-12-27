@@ -54,15 +54,16 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
         nm = dsDesc.Name(kn); % Name of the phenomenon to analyze
         dd = dsDesc.(nm); % Data description (only for this phenomenon)
         ds.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]);
-        ds.(nm) = helper.tblSetTimeZone(ds.(nm), stg.recTimeZoneStr);
-        ds.(nm) = helper.tblSetTimeZone(ds.(nm), "UTC");
+        ds.(nm) = dt.tblSetTimeZone(ds.(nm), stg.recTimeZoneStr);
+        ds.(nm) = dt.tblSetTimeZone(ds.(nm), "UTC");
     end
 
     % Loop over label files
     fprintf(['\nLabel File No. ', num2str(0, '%06d'), '/', num2str(numel(lblpn), '%06d'), '\n'])
     clear prevEnd
-    afterTimeChange = false;
-    firstFileAfterTimeChange = [];
+    afterTimeChngTF = false;
+    prevSigInfo = [];
+    stdFileInt = hours(1);
     for klbl = 1 : numel(lblpn)
         % Progress display
         if rem(klbl, 20) == 0
@@ -70,8 +71,7 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
             fprintf(['\nLabel File No. ', num2str(klbl, '%06d'), '/', num2str(numel(lblpn), '%06d')])
             fprintf('\n')
         end
-
-% % % % % % % % % lblpn{klbl}
+        
         ll = load(lblpn{klbl}); % Loaded label. All three variables from the label file will become fields of the ll structure
 
         % Keep only channels belonging to this animal
@@ -79,81 +79,15 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
         ll.sigInfo = ll.sigInfo(chToKeep, :);
         ll.lblSet = ll.lblSet(ismember(ll.lblSet.Channel, chToKeep), :);
         
-        % Check if sigInfo channels are consistent
-        fileNameConsistent = all(ll.sigInfo.FileName == ll.sigInfo.FileName(1));
-        sigStartConsistent = all(ll.sigInfo.SigStart == ll.sigInfo.SigStart(1));
-        sigEndConsistent = all(ll.sigInfo.SigEnd - ll.sigInfo.SigEnd(1) < seconds(2));
-        if ~(fileNameConsistent && sigStartConsistent && sigEndConsistent)
-            disp(ll.sigInfo)
-            warning('_jk sigInfo channels inconsistent')
+        % Check consistenty of the input data
+        isConsistentTF = dt.checkDatetimeConsistency(lblpn, klbl, ll);
+        if ~isConsistentTF
+            warning('_jk Rows of sigInfo not consistent.')
             pause
         end
         
-        % Check if sigInfo.FileName corresponds to file name
-        fndattimStr = regexp(lblpn{klbl}, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match');
-        filenameDt = datetime(fndattimStr{1}, 'InputFormat', 'yyMMdd_HHmmss');
-        fcdattimStr = regexp(ll.sigInfo.FileName, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match');
-        filecontDt = datetime(fcdattimStr{1}, 'InputFormat', 'yyMMdd_HHmmss');
-        if filenameDt ~= filecontDt
-            disp(klbl)
-            disp(lblpn{klbl})
-            disp(ll.sigInfo)
-            warning('_jk File name and file contents do not correspond in terms of the date and time.')
-            pause
-        end
-        
-        % Check if SigStart corresponds to file name
-        fndattimStr = regexp(lblpn{klbl}, '\d\d\d\d\d\d_\d\d\d\d\d\d', 'match');
-        filenameDt = datetime(fndattimStr{1}, 'InputFormat', 'yyMMdd_HHmmss');
-        filecontDt = ll.sigInfo.SigStart;
-        if filenameDt ~= filecontDt
-            disp(klbl)
-            disp(lblpn{klbl})
-            disp(ll.sigInfo)
-            warning('_jk SigStart does not correspond to file name.')
-            pause
-        end
-        
-        % Get times relative to signal file start
-        sigDur = ll.sigInfo.SigEnd(1) - ll.sigInfo.SigStart(1);
-        markerTime = ll.lblSet.Start - ll.sigInfo.SigStart(1);
-        markerDur = ll.lblSet.End - ll.lblSet.Start;
-        
-         % Set the time zone where the data was recorded
-        ll.sigInfo = helper.tblSetTimeZone(ll.sigInfo, stg.recTimeZoneStr); % First set the time zone where the data was recorded
-        
-        % Check if it is during the transition from the daylight saving time to the standard time
-        if helper.dtIsAmbiguous(ll.sigInfo.SigStart(1))
-            fileInterval = ll.sigInfo.SigStart(1) - prevSigInfo.SigStart(1);
-            if fileInterval < 0.5*standardFileInterval
-                afterTimeChange = true;
-                lastBeforeTimeChange = lblpn{klbl-1}
-                firstFileAfterTimeChange = lblpn{klbl}
-                disp('_jk First file after change from DST to standard found.')
-                pause
-            end
-            if afterTimeChange
-                addToUTC = hours(1);
-            else
-                addToUTC = hours(0);
-            end
-        else
-            addToUTC = hours(0);
-            if exist("prevSigInfo", "var")
-                standardFileInterval = ll.sigInfo.SigStart(1) - prevSigInfo.SigStart(1);
-            end
-        end
-        prevSigInfo = ll.sigInfo;
-        
-        % Change TimeZone to UTC
-        ll.sigInfo = helper.tblSetTimeZone(ll.sigInfo, "UTC"); % Then, convert it to the UTC
-        ll.sigInfo.SigStart = ll.sigInfo.SigStart + addToUTC;
-        ll.sigInfo.SigEnd = ll.sigInfo.SigStart + sigDur;
-
-        % Set lblSet
-        ll.lblSet = helper.tblSetTimeZone(ll.lblSet, "UTC");
-        ll.lblSet.Start = ll.sigInfo.SigStart(1) + markerTime;
-        ll.lblSet.End = ll.lblSet.Start + markerDur;
+        [ll, firstAftChngSub, firstAftChngStr, prevSigInfo, stdFileInt, afterTimeChngTF] = ...
+            dt.convertLblToUTC(stg, lblpn, klbl, ll, prevSigInfo, stdFileInt, afterTimeChngTF);
         
         % Check if new file begins after the end of the previous file
         if exist('prevSigInfoUTC', 'var')
@@ -164,7 +98,7 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
                 klbl_ = klbl
                 prev_lblpn_ = lblpn{klbl-1}
                 prevSigInfo_ = prevSigInfoUTC
-                prevTz_ = prevSigInfo.SigStart.TimeZone
+                prevTz_ = prevSigInfoUTC.SigStart.TimeZone
                 lblpn_klbl_ = lblpn{klbl}
                 thisSigInfo_ = ll.sigInfo
                 thisTz_ = ll.sigInfo.SigStart.TimeZone
@@ -174,9 +108,8 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
             end
         end
         prevSigInfoUTC = ll.sigInfo;
-
-
         
+        % Main loop
         for kn = 1 : numel(dsDesc.Name) % Over the names of the phenomena
             nm = dsDesc.Name(kn); % Name of the phenomenon we are now analyzing
             dd = dsDesc.(nm); % Data description (only for this phenomenon)
@@ -184,8 +117,7 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
 
             numNewRows = sum(ismember(ll.lblSet.ClassName, dd(1).MainLbl)); % Number of rows (e.g. number of seizures in this label file)
             newRows = table('Size', [numNewRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialization of the table.
-            newRows = helper.tblSetTimeZone(newRows, stg.recTimeZoneStr);
-            newRows = helper.tblSetTimeZone(newRows, "UTC");
+            newRows = dt.tblSetTimeZone(newRows, "UTC");
             for kchar = 1 : size(dsDesc.(nm), 2) % Over characteristics. Fill in new rows for each characteristic of the phenomenon
                 d = dd(kchar); % Description of the current characteristic.
                 funcHandle = str2func(d.CalcFcn); % Get function handle from the name of the function.
@@ -269,8 +201,8 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
             dd = dpDesc.(nm); % Data description (only for this phenomenon)
             if dd(1).BinLenDu == binlenUnDu(kbinlen)
                 dp.(nm) = table('Size', [0, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Initialize with zero number of rows
-                dp.(nm) = helper.tblSetTimeZone(dp.(nm), stg.recTimeZoneStr);
-                dp.(nm) = helper.tblSetTimeZone(dp.(nm), "UTC");
+                dp.(nm) = dt.tblSetTimeZone(dp.(nm), stg.recTimeZoneStr);
+                dp.(nm) = dt.tblSetTimeZone(dp.(nm), "UTC");
             end
         end
         
@@ -310,8 +242,8 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
                 if dd(1).BinLenDu == binlenUnDu(kbinlen)
                     numRows = numel(lblfSub); % Number of rows
                     binTables.(nm) = table('Size', [numRows, length(dd)], 'VariableTypes', [dd.VarType], 'VariableNames', [dd.VarName]); % Table of data from all files belonging to current time bin
-                    binTables.(nm) = helper.tblSetTimeZone(binTables.(nm), stg.recTimeZoneStr);
-                    binTables.(nm) = helper.tblSetTimeZone(binTables.(nm), "UTC");
+                    binTables.(nm) = dt.tblSetTimeZone(binTables.(nm), stg.recTimeZoneStr);
+                    binTables.(nm) = dt.tblSetTimeZone(binTables.(nm), "UTC");
                 end
             end
             
@@ -327,15 +259,15 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
             for klf = 1 : numel(lblfSub) % k-th label file (out of those relevant for this block)
                 if loadedLblpn ~= string(lblpn{lblfSub(klf)}) % Check if the required data file is already loaded. If not, load it.
                     ll = load(lblpn{lblfSub(klf)}, 'sigInfo', 'lblDef', 'lblSet');
-                    ll.sigInfo = helper.tblSetTimeZone(ll.sigInfo, stg.recTimeZoneStr);
+                    ll.sigInfo = dt.tblSetTimeZone(ll.sigInfo, stg.recTimeZoneStr);
                     if diff(isdst(ll.sigInfo.SigStart(1), ll.sigInfo.SigStart(1) + hours(1)))
                         ll.sigInfo
                         warning('_jk Some problem with daylight saving time.')
                         pause
                     end
-                    ll.sigInfo = helper.tblSetTimeZone(ll.sigInfo, "UTC");
-                    ll.lblSet = helper.tblSetTimeZone(ll.lblSet, stg.recTimeZoneStr);
-                    ll.lblSet = helper.tblSetTimeZone(ll.lblSet, "UTC");
+                    ll.sigInfo = dt.tblSetTimeZone(ll.sigInfo, "UTC");
+                    ll.lblSet = dt.tblSetTimeZone(ll.lblSet, stg.recTimeZoneStr);
+                    ll.lblSet = dt.tblSetTimeZone(ll.lblSet, "UTC");
 
                     % Keep only channels belonging to this animal
                     chToKeep = find(ll.sigInfo.Subject == string(subjNmOrig));
@@ -496,8 +428,8 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
     %% Nested functions - possibly put them also in +gd?
     function [subjNm, anStartDt, anEndDt, chName] = getSubjInfo(stg, lblpn, subjNmOrig, varargin)
         lll = load(lblpn{1}, 'sigInfo', 'lblDef', 'lblSet');
-        lll.sigInfo = helper.tblSetTimeZone(lll.sigInfo, stg.recTimeZoneStr);
-        lll.sigInfo = helper.tblSetTimeZone(lll.sigInfo, "UTC");
+        lll.sigInfo = dt.tblSetTimeZone(lll.sigInfo, stg.recTimeZoneStr);
+        lll.sigInfo = dt.tblSetTimeZone(lll.sigInfo, "UTC");
         % There can be multiple subjects in one lbl3 file. Keep only channels containing the data on the subject.
         ss = strsplit(subjNmOrig, 'ET'); % ET stands for ear tag. Sometimes it is included in the subject name
         whichChannelsLbl = find(contains(lll.sigInfo.Subject, ss{end}));
@@ -513,8 +445,8 @@ function [subjInfo, ds, dp] = getData(stg, dsDesc, dpDesc, lblp, snlp, dobTable,
         end
         anStartDt = min(lll.sigInfo.SigStart); % Analysis start determined by label files
         lastLbl = load(lblpn{end}, 'sigInfo');
-        lastLbl.sigInfo = helper.tblSetTimeZone(lastLbl.sigInfo, stg.recTimeZoneStr);
-        lastLbl.sigInfo = helper.tblSetTimeZone(lastLbl.sigInfo, "UTC");
+        lastLbl.sigInfo = dt.tblSetTimeZone(lastLbl.sigInfo, stg.recTimeZoneStr);
+        lastLbl.sigInfo = dt.tblSetTimeZone(lastLbl.sigInfo, "UTC");
         lastSigInfo = lastLbl.sigInfo(whichChannelsLbl, :);
         anEndDt = max(lastSigInfo.SigEnd); % Analysis end determined by signal files
         if numel(varargin) == 0
